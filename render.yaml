@@ -1,0 +1,13 @@
+# Render Blueprint (T4.9) — máy chủ phòng chơi (relay + lobby). Web tĩnh vẫn ở Vercel.
+# Server import ../src/config và ../src/data nên phải deploy CẢ repo (không chỉ thư mục server/): build/start chạy từ thư mục gốc.
+services:
+  - type: web
+    name: three-kingdoms-rooms
+    runtime: node
+    plan: free
+    buildCommand: npm install --prefix server
+    startCommand: node server/index.js
+    healthCheckPath: /health
+    envVars:
+      - key: ALLOWED_ORIGINS   # ví dụ https://ten-game.vercel.app (nhiều nơi thì phân tách bằng dấu phẩy); để trống = nhận mọi trang
+        sync: false

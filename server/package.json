@@ -1,0 +1,11 @@
+{
+  "name": "three-kingdoms-server",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Relay/lobby server cho phòng chơi 4 người (Giai đoạn 4) — chạy: node server/index.js từ thư mục gốc repo",
+  "type": "module",
+  "engines": { "node": ">=18" },
+  "main": "index.js",
+  "scripts": { "start": "node index.js" },
+  "dependencies": { "ws": "^8.18.0" }
+}

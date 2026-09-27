@@ -1,0 +1,549 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<link rel="icon" href="data:,">
+<title>趙雲 — Voxel Musou</title>
+<script type="importmap">
+{ "imports": { "three": "./vendor/three/three.module.js", "three/addons/": "./vendor/three/addons/" } }
+</script>
+<link rel="stylesheet" href="./src/ui/fonts/fonts.css">
+<style>
+  /* Biến font dùng chung — #hud (dưới đây) khai lại y hệt (không đổi hành vi cũ); #touch/#rotate-overlay (T8) dùng qua đây
+     vì custom property chỉ lan xuống phần tử con, không lan sang phần tử anh em (#hud). */
+  :root { --brush: "Xingkai SC", "STXingkai", "HudBrush", serif; --kai: "TKSerif", "Kaiti SC", "STKaiti", "KaiTi", "HudBrush", serif;
+    --sans: "TKSans", "Avenir Next", "Helvetica Neue", sans-serif; --gold: #f2c14e; --teal: #3fb8b0; --seal: #b3261e; }
+  html, body { margin: 0; height: 100%; background: #1a120d; overflow: hidden; overscroll-behavior: none; }
+  canvas#c { display: block; width: 100vw; height: 100vh; image-rendering: pixelated; }
+  /* T8.2: chặn cuộn/phóng to/kéo-để-tải-lại/bôi-đen-chữ/menu-nhấn-giữ trên toàn khung game — không đụng các bảng
+     con (#lobby input, #menu .sound-row) là nơi vẫn cần cuộn/gõ chữ bình thường. */
+  body.touch #c, body.touch #hud, body.touch #touch, body.touch #army-hud, body.touch #minimap { touch-action: none; }
+  body.touch * { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+  body.touch input, body.touch textarea { -webkit-user-select: text; user-select: text; touch-action: manipulation; }
+
+  /* ---- T8.5–T8.9: điều khiển cảm ứng (ui/touch.js). Chỉ hiện khi <body class="touch">. Vùng an toàn (tai thỏ,
+     thanh điều hướng) trừ vào lề bằng env(safe-area-inset-*) — 0 trên máy không hỗ trợ. ---- */
+  /* z-index 1 = cùng tầng #army-hud/#minimap/#pause-btn: khi tạm dừng, #menu (z-index 2) tự phủ lên trên, không cần
+     JS ẩn/hiện #touch riêng lúc tạm dừng (main.js chỉ ẩn/hiện theo scene, giống #army-hud/#minimap). */
+  #touch { display: none; position: fixed; inset: 0; z-index: 1; color: #f4ead8; font-family: var(--sans); }
+  /* main.js ẩn/hiện #touch bằng thuộc tính `hidden` ở đúng những màn có tướng để điều khiển (giống #army-hud,
+     #minimap) — :not([hidden]) để display:block không đè lên lúc đang hidden. */
+  body.touch #touch:not([hidden]) { display: block; }
+  #touch .tc-move, #touch .tc-cam, #touch .tc-attack, #touch .tc-ord, #touch .tc-heal { touch-action: none; }
+  #touch .tc-move { position: absolute; left: max(2rem, env(safe-area-inset-left)); bottom: max(2rem, env(safe-area-inset-bottom));
+    width: 11rem; height: 11rem; border-radius: 50%; background: rgba(20,14,10,.4); box-shadow: inset 0 0 0 .15rem rgba(244,234,216,.3); }
+  #touch .tc-move.on { background: rgba(20,14,10,.6); }
+  #touch .tc-move-stick { position: absolute; left: 50%; top: 50%; width: 4.6rem; height: 4.6rem; margin: -2.3rem;
+    border-radius: 50%; background: rgba(242,193,78,.55); box-shadow: 0 0 0 .12rem rgba(244,234,216,.55); pointer-events: none; }
+  #touch .tc-cam { position: absolute; right: 0; top: 0; bottom: 11rem; left: 40%; }   /* vuốt xoay camera — dưới các nút (stopPropagation) */
+  #touch .tc-attack { position: absolute; right: max(2.4rem, env(safe-area-inset-right)); bottom: max(2.2rem, env(safe-area-inset-bottom));
+    width: 9.5rem; height: 9.5rem; border-radius: 50%; border: .15rem solid rgba(244,234,216,.5); background: rgba(179,38,30,.75);
+    color: #f8e6d2; font: 700 1.7rem var(--kai); letter-spacing: .1em; }
+  #touch .tc-attack.on { background: rgba(220,60,50,.9); transform: scale(0.94); }
+  #touch .tc-orders { position: absolute; right: 11.4rem; bottom: 9.6rem; width: 13rem; height: 13rem; }
+  #touch .tc-ord { position: absolute; width: 5rem; height: 5rem; border-radius: 50%; border: .12rem solid rgba(244,234,216,.4);
+    background: rgba(20,14,10,.6); color: #f4ead8; font: 600 .95rem/1.1 var(--sans); display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: .1rem; }
+  #touch .tc-ord b { font: 700 1.1rem var(--kai); color: #f2c14e; }
+  #touch .tc-ord.on { background: rgba(60,44,32,.85); }
+  #touch .tc-ord.active { box-shadow: 0 0 0 .16rem #f2c14e; }
+  #touch .tc-orders .tc-ord:nth-child(1) { right: 0; top: 4rem; }      /* 3 · Tấn công */
+  #touch .tc-orders .tc-ord:nth-child(2) { right: 4rem; top: 0; }      /* 4 · Phòng thủ */
+  #touch .tc-orders .tc-ord:nth-child(3) { right: 8rem; top: 4rem; }   /* 5 · Rút lui */
+  #touch .tc-orders .tc-ord:nth-child(4) { right: 4rem; top: 8rem; }   /* 6 · Đi theo */
+  #touch .tc-heal { position: absolute; right: max(2.4rem, env(safe-area-inset-right)); bottom: 12.4rem;
+    width: 5.6rem; height: 5.6rem; border-radius: 50%; border: .12rem solid rgba(244,234,216,.4); background: rgba(63,184,176,.5);
+    color: #f4ead8; font: 600 .85rem/1.15 var(--sans); display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  #touch .tc-heal b { font: 700 1.2rem var(--kai); color: #fff; }
+  #touch .tc-heal.on { background: rgba(63,184,176,.8); }
+  #touch .tc-heal.empty b { color: #c98; }
+
+  /* ---- T8.3: chỉ chơi màn ngang. ---- */
+  #rotate-overlay { display: none; position: fixed; inset: 0; z-index: 20; background: rgba(10,7,6,.96); color: #f4ead8;
+    flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 1rem; font-family: var(--sans); }
+  #rotate-overlay .ic { font-size: 4rem; animation: rot-spin 1.6s ease-in-out infinite; }
+  @keyframes rot-spin { 0%, 100% { transform: rotate(0deg); } 50% { transform: rotate(-90deg); } }
+  body.touch.portrait #rotate-overlay { display: flex; }
+
+  /* ---- HUD (owned by the hud part). DW8 layout, concept calligraphy. 1rem = 1/72 viewport height (10 px @720p). ---- */
+  html { font-size: calc(100vh / 72); }
+  /* Portable brush fallback for machines without the macOS Xingkai/Kaiti assets: Yuji Boku (SIL OFL 1.1, Kinuta Font
+     Factory), subset to the HUD's glyphs (src/ui/brush.woff2). Only fetched when the fonts before it are missing.
+     When you add HUD text with new CJK characters, re-subset (Google Fonts css2?family=Yuji+Boku&text=...). */
+  @font-face { font-family: "HudBrush"; src: url(./src/ui/brush.woff2) format("woff2"); font-display: swap; }
+  #hud { position: fixed; inset: 0; pointer-events: none; color: #f4ead8; user-select: none; overflow: hidden;
+    --brush: "Xingkai SC", "STXingkai", "HudBrush", serif; --kai: "TKSerif", "Kaiti SC", "STKaiti", "KaiTi", "HudBrush", serif;
+    --sans: "TKSans", "Avenir Next", "Helvetica Neue", sans-serif; --gold: #f2c14e; --teal: #3fb8b0; --seal: #b3261e;
+    font-family: var(--kai); text-shadow: 0 .2rem .3rem rgba(0,0,0,.7); }
+  #hud > * { position: absolute; }
+  #hud .seal { display: inline-block; font: 700 1.3rem/1.05 var(--brush); font-style: normal; color: #f8e6d2; background: var(--seal);
+    writing-mode: vertical-rl; padding: .3rem .22rem; border-radius: .25rem; text-shadow: none;
+    box-shadow: inset 0 0 0 .14rem var(--seal), inset 0 0 0 .24rem rgba(248,230,210,.75), 0 .15rem .4rem rgba(0,0,0,.5); }
+  #hud .bar { position: relative; background: rgba(10,7,6,.75); box-shadow: 0 0 0 .1rem rgba(0,0,0,.6), 0 .2rem .5rem rgba(0,0,0,.45); }
+  #hud .bar i, #hud .bar em { position: absolute; inset: 0; transform-origin: 0 50%; }
+  #hud .bar em { background: #f7efe2; }
+
+  /* intro card: title + controls (concept top-left typography) */
+  #hud .h-intro { left: 2.6rem; top: 1.4rem; }
+  #hud .h-intro .zh { display: inline-block; font: 700 8rem/1 var(--brush); letter-spacing: .3rem; color: #f7f1e8;
+    text-shadow: 0 0 .1rem #000, .3rem .4rem 0 rgba(0,0,0,.5), 0 0 2rem rgba(0,0,0,.4); }
+  #hud .h-intro .seal { vertical-align: 1.2rem; margin-left: .6rem; }
+  #hud .h-intro .en { font: 500 1.25rem/1 var(--sans); letter-spacing: .95em; margin: .2rem 0 0 .5rem; opacity: .85; }
+  #hud .h-intro .sub { font-size: 1.45rem; letter-spacing: .35rem; margin: .9rem 0 0 .4rem; opacity: .85; }
+  #hud .h-intro .keys { font: 500 1.15rem/2.2 var(--sans); margin: .9rem 0 0 .2rem; padding: .3rem 1rem; color: #efe3cf;
+    background: linear-gradient(90deg, rgba(12,8,6,.62), rgba(12,8,6,0)); border-left: .2rem solid var(--seal); }
+  #hud kbd { font: 600 1.05rem/1 var(--sans); padding: .2rem .45rem; border: .1rem solid rgba(239,227,207,.55); border-radius: .3rem;
+    background: rgba(0,0,0,.4); margin-right: .15rem; }
+
+  /* player: pixel portrait badge, brush name, long teal HP bar, 3-segment musou gauge (DW8 bottom band) */
+  #hud .h-player { left: 0; right: 0; bottom: 0; height: 20rem; }
+  #hud .badge { position: absolute; left: 3.4rem; bottom: 4.2rem; width: 11rem; height: 11rem; border-radius: 50%; overflow: hidden;
+    background: radial-gradient(circle at 50% 38%, #3c6f72, #16262a 70%); border: .35rem solid #d9d2c6;
+    box-shadow: 0 0 0 .2rem #1a1210, 0 0 0 .38rem #b8893a, 0 .4rem 1rem rgba(0,0,0,.6); }
+  #hud .badge canvas { position: absolute; left: 1.1rem; bottom: -.3rem; width: 8.8rem; height: 8.8rem; image-rendering: pixelated; }
+  #hud .h-player.hurt .badge { border-color: #ff6a4a; }
+  #hud .h-player.low .badge { box-shadow: 0 0 0 .2rem #1a1210, 0 0 0 .38rem #d23a24, 0 0 1.6rem rgba(230,60,30,.7); }
+  #hud .name { position: absolute; left: 13.4rem; bottom: 7.9rem; font: 700 3.8rem/1 var(--brush); color: #f7f1e8;
+    text-shadow: 0 0 .1rem #000, .2rem .3rem 0 rgba(0,0,0,.55); }
+  #hud .hp { position: absolute; left: 16%; right: 22%; bottom: 6.8rem; height: 1.4rem;
+    clip-path: polygon(0 0, 100% 0, calc(100% - 1rem) 100%, 0 100%); }
+  #hud .hp { background: linear-gradient(rgba(58,46,38,.88), rgba(20,15,12,.88)); }   /* empty track: readable length */
+  #hud .hp::after { content: ""; position: absolute; inset: 0; box-shadow: inset 0 0 0 .12rem rgba(214,184,130,.6); }
+  #hud .hp em { opacity: .8; background: repeating-linear-gradient(90deg, rgba(0,0,0,.2) 0 .2rem, transparent .2rem .6rem),
+    linear-gradient(#ffe6c0, #d8a060); }                                                  /* damage chunk (lags, then drains) */
+  #hud .hp i { background: linear-gradient(#aef3e6 0 18%, #3fc2b4 30%, #1f8a82 85%, #146058); }
+  #hud .h-player.low .hp i { background: linear-gradient(#ffb09a 0 18%, #e2402a 30%, #9a1c10 85%); }
+  #hud .mu { position: absolute; left: 15%; width: 30%; bottom: 4.7rem; height: 1.3rem; display: flex; gap: .4rem; --p: 0; }
+  #hud .mu div { position: relative; flex: 1; background: rgba(10,7,6,.75); box-shadow: 0 0 0 .1rem #6b4a1c, 0 0 0 .2rem rgba(0,0,0,.6);
+    transform: skewX(-24deg); }
+  #hud .mu i { position: absolute; inset: .15rem; transform-origin: 0 50%;
+    background: repeating-linear-gradient(90deg, rgba(0,0,0,.18) 0 .2rem, transparent .2rem .6rem), linear-gradient(#fff2b8, #f2c14e 45%, #b8791c); }
+  #hud .mu span { position: absolute; left: calc(100% + 1.2rem); top: -1.1rem; white-space: nowrap; font: 700 2.4rem/1 var(--brush); color: #8a7658; }
+  #hud .mu.full div { box-shadow: 0 0 0 .1rem #ffe8a0, 0 0 calc(.6rem + var(--p) * 1.4rem) rgba(255,200,80,.95); }
+  #hud .mu.full i { background: linear-gradient(100deg, transparent calc(var(--s, -50%) - 18%), rgba(255,255,240,.9) var(--s, -50%), transparent calc(var(--s, -50%) + 18%)),
+    repeating-linear-gradient(90deg, rgba(0,0,0,.14) 0 .2rem, transparent .2rem .6rem), linear-gradient(#fffbe0, #ffd45e 45%, #d08a1c); }
+  #hud .mu.full span { color: #ffe3a0; text-shadow: 0 0 calc(.4rem + var(--p) * 1.2rem) #ffb030, .2rem .3rem 0 rgba(0,0,0,.6); }
+  #hud .mu.active i { background: linear-gradient(#ffffff, #bfe8ff 45%, #4aa2ff); }
+  #hud .mu.active span { color: #d8f2ff; text-shadow: 0 0 1rem #58b2ff; }
+
+  /* Heavy numerals (KO, chain, milestone): DW8's weight in brush calligraphy. <b class="dig" data-t="N"><span>N</span></b>:
+     ::before is a dark rim + halo (thick stroke, drop shadows) so digits read over white musou flashes and dark crowds;
+     the span is a bevelled vertical gradient, fattened by an edge stroke in the mid tone. */
+  #hud .dig { position: relative; isolation: isolate; padding: 0 .12em; --rw: .6rem; --ew: .16rem;
+    --hi: #fffbe0; --mid: #ffd865; --lo: #b8680e; --rim: #2a1204; --edge: #f2b440; }
+  #hud .dig::before { content: attr(data-t); position: absolute; left: 0; top: 0; padding: inherit; z-index: -1; text-shadow: none;
+    color: var(--rim); -webkit-text-stroke: var(--rw) var(--rim); filter: drop-shadow(0 0 .7rem rgba(0,0,0,.65)) drop-shadow(.3rem .4rem 0 rgba(0,0,0,.5)); }
+  #hud .dig span { text-shadow: none; color: transparent; -webkit-text-stroke: var(--ew) var(--edge);
+    background: linear-gradient(var(--hi), var(--mid) 40%, color-mix(in srgb, var(--mid), var(--lo)) 62%, var(--lo));
+    -webkit-background-clip: text; background-clip: text; }
+
+  /* counters: KO bottom right (gold), chain left (ice cyan) — brush numerals, ghost layer <u> */
+  #hud .num { position: relative; display: inline-block; }
+  #hud .num b, #hud .num u { display: inline-block; font: 700 6.6rem/1 var(--brush); text-decoration: none; }
+  #hud .num u { position: absolute; right: 0; top: 0; opacity: 0; }
+  #hud .h-ko { right: 6.5%; bottom: 5.4rem; text-align: right; }
+  #hud .h-ko b { transform-origin: 100% 85%; }
+  #hud .h-ko u { color: #ffd66a; transform-origin: 100% 85%; padding: 0 .12em; text-shadow: 0 0 1.4rem rgba(255,190,60,.9); }
+  #hud small { display: block; font: 700 1.15rem/1 var(--sans); letter-spacing: .3em; text-shadow: 0 0 .3rem #000, 0 .15rem .3rem rgba(0,0,0,.8); }
+  #hud small em { font: 700 1.9rem/1 var(--brush); font-style: normal; letter-spacing: .1em; margin-right: .5rem; vertical-align: -.3rem; }
+  #hud .h-ko small { color: #ffe0a0; margin-top: -.4rem; }
+  #hud .h-chain { left: 11%; top: 45%; }
+  #hud .h-chain b { transform-origin: 0 85%; --hi: #f4feff; --mid: #9aeaff; --lo: #1d78c0; --rim: #041a2e; --edge: #5cc8f4; }
+  /* chain ghosts (pool of 3, one per tick): pale cyan digit with a DW8 motion smear trailing up-right, where it came from */
+  #hud .h-chain u { transform-origin: 0 100%; color: #f4feff; -webkit-text-stroke: .22rem #3aa6f0; padding: 0 .12em;
+    text-shadow: .12em -.1em 0 rgba(130,220,255,.55), .24em -.2em 0 rgba(110,205,255,.3), .36em -.3em .1rem rgba(90,190,255,.14),
+      0 0 1.2rem rgba(90,200,255,.9); }
+  #hud .h-chain small { color: #bfeeff; margin: -.3rem 0 0 .3rem; }
+
+  /* KO milestone: centre, heavy gold brush number (digits ~13 % H like DW8) + red 擊破 seal stamp */
+  #hud .h-mile { left: 0; right: 0; top: 33%; text-align: center; opacity: 0; }
+  #hud .h-mile b { display: inline-block; font: 700 15rem/1 var(--brush); --rw: 1rem; --ew: .3rem; --hi: #fffdf0; --mid: #ffdc6a;
+    vertical-align: middle; }
+  #hud .h-mile b::before { filter: drop-shadow(0 0 1.4rem rgba(0,0,0,.8)) drop-shadow(.5rem .6rem 0 rgba(0,0,0,.5)); }
+  #hud .h-mile .seal { font-size: 3.3rem; padding: .6rem .45rem; vertical-align: middle; margin-left: .2rem; }
+
+  /* system banner: full-width band y 64-71 %; dialogue: portrait + 2 lines, lower left */
+  #hud .h-band { left: 0; right: 0; top: 64%; padding: .6rem 0 .7rem; text-align: center; opacity: 0;
+    background: linear-gradient(90deg, rgba(10,6,4,0), rgba(10,6,4,.72) 22%, rgba(10,6,4,.72) 78%, rgba(10,6,4,0));
+    border-image: linear-gradient(90deg, transparent, rgba(214,170,90,.8) 30%, rgba(214,170,90,.8) 70%, transparent) 1; border-width: .1rem 0; border-style: solid; }
+  #hud .h-band p { margin: 0; font: 700 2.6rem/1.15 var(--kai); letter-spacing: .4rem; }
+  #hud .h-band p em { font-style: normal; color: #ff5b3c; }
+  #hud .h-band small { margin-top: .35rem; opacity: .8; font-weight: 500; }
+  #hud .h-dlg { left: 2.6rem; top: 9.6rem; display: flex; gap: 1.2rem; align-items: center; opacity: 0; padding: .6rem 6rem .6rem 1rem;
+    background: linear-gradient(90deg, rgba(10,6,4,.8), rgba(10,6,4,.6) 65%, rgba(10,6,4,0)); border-left: .25rem solid var(--teal); }
+  #hud .h-dlg canvas { width: 5.6rem; height: 5.6rem; image-rendering: pixelated; background: #1d3a3c; box-shadow: 0 0 0 .15rem #d9d2c6; }
+  #hud .h-dlg b { font: 700 2rem/1 var(--brush); color: #9fe6de; }
+  #hud .h-dlg b span { font: 600 .95rem/1 var(--sans); letter-spacing: .3em; color: #9fe6de; opacity: .8; margin-left: .5rem; }
+  #hud .h-dlg p { margin: .4rem 0 .35rem; font: 700 2.3rem/1.1 var(--kai); letter-spacing: .12rem; white-space: nowrap; }
+  #hud .h-dlg small { font-weight: 600; letter-spacing: .06em; font-size: 1.6rem; white-space: nowrap; color: #f4ead8; }
+
+  /* musou: concept's vertical copy on the right */
+  #hud .h-copy { right: 3.2%; top: 44%; writing-mode: vertical-rl; font: 700 3.4rem/1.3 var(--brush); letter-spacing: .5rem; opacity: 0;
+    color: #f7f1e8; text-shadow: 0 0 .1rem #000, .2rem .3rem 0 rgba(0,0,0,.55), 0 0 1.4rem rgba(120,200,255,.5);
+    border-top: .15rem solid rgba(247,241,232,.7); border-bottom: .15rem solid rgba(247,241,232,.7); padding: 1rem 0; }
+
+  /* officer target bar (top left) + floating officer tags */
+  #hud .h-target { left: 2.6rem; top: 2.2rem; width: 36%; opacity: 0; }
+  #hud .h-target .seal { font-size: 1.6rem; vertical-align: .6rem; margin-right: .6rem; writing-mode: horizontal-tb; padding: .25rem .3rem; }
+  #hud .h-target b { font: 700 2.8rem/1 var(--brush); color: #ffe3b0; }
+  #hud .h-target span { font: 600 1rem/1 var(--sans); letter-spacing: .35em; margin-left: .8rem; opacity: .85; }
+  #hud .h-target .bar { height: 1rem; margin-top: .5rem; clip-path: polygon(0 0, 100% 0, calc(100% - .7rem) 100%, 0 100%); }
+  #hud .h-target .bar i { background: linear-gradient(#ffb49a 0 20%, #e0442e 35%, #8e1c10); }
+  #hud .h-target .bar em { background: #ffcf8a; }
+  #hud .h-target strong { position: absolute; left: 14rem; top: -.6rem; font: 700 4rem/1 var(--brush); color: #ff5b3c; opacity: 0;
+    transform: rotate(-8deg); -webkit-text-stroke: .1rem #3a0a04; }
+  #hud .h-target.ko strong { opacity: 1; }
+  #hud .h-offs { inset: 0; }
+  #hud .off { position: absolute; left: 0; top: 0; width: 0; height: 0; opacity: 0; }
+  /* anchor = the ▼▼ tip on the officer's head; .bd (name, romanisation, HP bar ~16 % W) is a 0×0 box at the anchor,
+     moved/scaled from JS; .ld is the 1 px leader drawn when the body had to leave the ▼▼ */
+  #hud .off .bd { position: absolute; left: 0; bottom: 0; width: 0; height: 0; }
+  #hud .off b, #hud .off span, #hud .off .bar { position: absolute; left: -11rem; width: 22rem; text-align: center; }
+  #hud .off b { bottom: 2.75rem; font: 700 2.5rem/1 var(--brush); color: #ffd9a8; }
+  #hud .off span { bottom: 1.3rem; font: 700 1.3rem/1 var(--sans); letter-spacing: .24em; color: #f6e6d2; }
+  #hud .off .bar { bottom: .2rem; left: -10.5rem; width: 21rem; height: .8rem; clip-path: polygon(0 0, 100% 0, calc(100% - .5rem) 100%, 0 100%); }
+  #hud .off .bar i { background: linear-gradient(#ffb49a 0 20%, #e0442e 35%, #8e1c10); }
+  #hud .off .mk { position: absolute; left: 0; bottom: 0; transform-origin: 50% 100%; font: 700 1.6rem/1 var(--sans); color: #ff4a2e;
+    letter-spacing: -.2rem; white-space: nowrap; text-shadow: 0 0 .2rem #000, 0 .1rem .2rem rgba(0,0,0,.8); }
+  #hud .off .ld { position: absolute; left: -.07rem; bottom: 0; width: .14rem; height: 1px; transform-origin: 50% 100%;
+    background: rgba(255,217,168,.75); box-shadow: 0 0 .15rem rgba(0,0,0,.8); }
+
+  /* minimap: square battlefield map + 蜀/魏 morale bar (top right) */
+  #hud .h-map { right: 2.4%; top: 4.2rem; width: 20rem; }
+  #hud .h-map canvas { display: block; width: 20rem; height: 20rem; box-shadow: 0 0 0 .1rem rgba(214,184,130,.75), 0 0 0 .25rem rgba(0,0,0,.45), 0 .4rem 1rem rgba(0,0,0,.4); }
+  #hud .morale { position: relative; height: .5rem; margin: 0 0 .7rem; background: #c0392b; box-shadow: 0 0 0 .1rem rgba(0,0,0,.6); }
+  #hud .morale i { position: absolute; inset: 0; background: linear-gradient(#8fc4ff, #2f6fd0); transform-origin: 0 50%; }
+  #hud .morale span { position: absolute; top: -.6rem; font: 700 1.5rem/1 var(--brush); }
+  #hud .morale span:first-of-type { left: -2rem; color: #9cc8ff; }
+  #hud .morale span:last-of-type { right: -2rem; color: #ff8a70; }
+  #hud .h-map .seal { position: absolute; left: .5rem; bottom: .5rem; font-size: 1.05rem; padding: .2rem .15rem; opacity: .9; }
+  /* start / pause menu: the sim waits behind it (Esc reopens it) */
+  #menu { position: fixed; inset: 0; z-index: 2; display: flex; flex-direction: column; justify-content: safe center; overflow-y: auto; padding: 0 0 0 9vw;
+    color: #f4ead8; font-family: "TKSerif", "Kaiti SC", "STKaiti", "KaiTi", "HudBrush", serif; user-select: none;
+    background: linear-gradient(90deg, rgba(12,8,6,.92) 0, rgba(12,8,6,.78) 40%, rgba(12,8,6,.15) 75%, rgba(12,8,6,0)); }
+  #menu[hidden] { display: none; }
+  #menu .t { font: 700 16rem/1 "TKSerif", "Xingkai SC", "STXingkai", "HudBrush", serif; letter-spacing: 1rem; color: #f7f1e8;
+    text-shadow: .4rem .5rem 0 rgba(0,0,0,.55), 0 0 3rem rgba(0,0,0,.5); }
+  #menu .t i { display: inline-block; vertical-align: 3rem; margin-left: 1.2rem; font: 700 2.4rem/1.05 "TKSerif", "Xingkai SC", "STXingkai", "HudBrush", serif;
+    font-style: normal; writing-mode: vertical-rl; padding: .5rem .35rem; border-radius: .3rem; color: #f8e6d2; background: #b3261e; letter-spacing: 0;
+    text-shadow: none; box-shadow: inset 0 0 0 .2rem #b3261e, inset 0 0 0 .35rem rgba(248,230,210,.75); }
+  #menu .en { font: 500 1.8rem/1 "TKSans", "Avenir Next", "Helvetica Neue", sans-serif; letter-spacing: 1.1em; margin: .6rem 0 0 .6rem; opacity: .85; }
+  #menu .sub { font-size: 2.2rem; letter-spacing: .5rem; margin: 2rem 0 0 .4rem; color: #e8d9bf; }
+  #menu table { align-self: flex-start; margin: 3rem 0 0 .2rem; border-collapse: collapse; font: 500 1.7rem/1 "TKSans", "Avenir Next", "Helvetica Neue", sans-serif;
+    border-left: .3rem solid #b3261e; background: linear-gradient(90deg, rgba(0,0,0,.35), rgba(0,0,0,0)); }
+  #menu td { padding: .75rem 1.6rem; white-space: nowrap; }
+  #menu td:first-child { font: 700 2.2rem/1 "TKSerif", "Kaiti SC", "STKaiti", "KaiTi", "HudBrush", serif; color: #f2c14e; }
+  #menu td:first-child small { font: 500 1.3rem/1 "TKSans", "Avenir Next", "Helvetica Neue", sans-serif; letter-spacing: .15em; color: #cdbb9c; margin-left: .8rem; }
+  #menu kbd { font: 600 1.5rem/1 "TKSans", "Avenir Next", "Helvetica Neue", sans-serif; padding: .3rem .6rem; margin-right: .3rem;
+    border: .12rem solid rgba(239,227,207,.6); border-radius: .4rem; background: rgba(0,0,0,.45); }
+  #menu button { align-self: flex-start; margin: 3.4rem 0 0 .2rem; padding: 1.2rem 4rem; cursor: pointer; border: 0; border-radius: .4rem;
+    font: 700 3rem/1 "TKSerif", "Xingkai SC", "STXingkai", "HudBrush", serif; letter-spacing: .6rem; color: #1a120d;
+    background: linear-gradient(#ffe7a3, #f2c14e 55%, #c98a22); box-shadow: 0 0 0 .15rem #5a3a10, 0 .5rem 1.6rem rgba(0,0,0,.5); }
+  #menu button:hover { filter: brightness(1.1); }
+  #menu button small { font: 600 1.4rem/1 "TKSans", "Avenir Next", "Helvetica Neue", sans-serif; letter-spacing: .3em; margin-left: 1rem; }
+  #menu .factions-wrap { align-self: flex-start; margin: 2.2rem 0 0 .2rem; }
+  #menu .f-title { font: 700 1.6rem/1 "TKSerif", "Kaiti SC", "STKaiti", "KaiTi", "HudBrush", serif; color: #f2c14e; margin-bottom: 0.9rem; letter-spacing: 0.1em; }
+  #menu .f-chips { display: flex; flex-wrap: wrap; gap: 0.8rem; }
+  #menu .f-btn { margin: 0; padding: 0.7rem 1.4rem; cursor: pointer; border: 0.14rem solid rgba(239,227,207,0.35); border-radius: 0.4rem;
+    font: 600 1.35rem/1 "TKSans", "Avenir Next", "Helvetica Neue", sans-serif; color: #efe3cf; background: rgba(20,14,10,0.7); display: flex; align-items: center; gap: 0.6rem; transition: all 0.15s; }
+  #menu .f-btn:hover { border-color: #f2c14e; background: rgba(40,28,20,0.85); transform: translateY(-1px); }
+  #menu .f-btn.active { border-color: #f2c14e; background: linear-gradient(135deg, rgba(70,45,20,0.9), rgba(30,20,15,0.95)); box-shadow: 0 0 1rem rgba(242,193,78,0.4); color: #fff; }
+  #menu .f-flag { display: inline-flex; align-items: center; justify-content: center; width: 2.2rem; height: 2.2rem; border-radius: 0.25rem; font-family: "TKSerif", "Xingkai SC", "STXingkai", "HudBrush", serif; font-weight: 700; color: #f8e6d2; font-size: 1.3rem; text-shadow: 0 1px 2px #000; box-shadow: 0 0 0 1px rgba(255,255,255,0.25); }
+  /* Menu chính: dãy nút Bắt đầu / Ngôn ngữ / Âm thanh / Hướng dẫn chơi + các bảng con (ui/menu.js) */
+  #menu .menu-nav { display: flex; flex-direction: column; align-items: flex-start; gap: .9rem; margin: 3rem 0 0 .2rem; }
+  #menu .menu-nav[hidden], #menu .hint[hidden] { display: none; }
+  #menu .menu-nav[hidden], #menu .hint[hidden] { display: none; }
+  #menu .menu-nav button { margin: 0; min-width: 28rem; }
+  #menu button.secondary { padding: .9rem 3rem; font-size: 1.7rem; color: #f4ead8; background: rgba(60,44,32,.9); box-shadow: 0 0 0 .1rem rgba(214,184,130,.4); }
+  #menu button.secondary:hover { background: rgba(84,60,40,.95); }
+  #menu button.small { padding: .5rem 1.6rem; font-size: 1.4rem; margin-top: 1.2rem; }
+  #menu .menu-panel { margin: 2rem 0 0 .2rem; max-width: 66rem; }
+  #menu .menu-panel[hidden] { display: none; }
+  #menu .menu-panel h2 { margin: 0 0 1rem; font: 700 3rem/1.1 "TKSerif", "Xingkai SC", "STXingkai", "HudBrush", serif; color: #f2c14e; letter-spacing: .1rem; }
+  #menu .menu-panel h3 { margin: 1.6rem 0 .4rem; font: 700 1.9rem/1 "TKSerif", "Kaiti SC", "STKaiti", "KaiTi", "HudBrush", serif; color: #f2c14e; }
+  #menu .menu-panel .panel-back { margin: 1.8rem 0 0; }
+  #menu .menu-panel table { margin: .6rem 0 0; }
+  #menu .guide-scroll { max-height: 66vh; overflow-y: auto; padding-right: 1.2rem; }
+  #menu .menu-panel#panel-guide { max-width: min(96vw, 110rem); }
+  #menu .menu-panel#panel-guide td { padding: .35rem 1.2rem; }
+  #menu .menu-panel#panel-guide td:first-child { font-size: 1.8rem; }
+  #menu .sound-row { display: flex; align-items: center; gap: 1.6rem; font: 600 1.8rem/1 "TKSans", "Avenir Next", "Helvetica Neue", sans-serif; }
+  #menu .sound-row input[type=range] { width: 28rem; accent-color: #f2c14e; cursor: pointer; }
+  #menu .sound-row b { min-width: 4ch; color: #ffe7a3; }
+  #menu .gen-fac { margin: 1.4rem 0 .5rem; font: 700 1.6rem/1 "TKSerif", "Kaiti SC", "STKaiti", "KaiTi", "HudBrush", serif; color: #e8d9bf; display: flex; align-items: center; gap: .8rem; }
+  #menu .gen-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .7rem; }
+  #menu .gen-card { padding: .8rem 1rem; background: rgba(0,0,0,.34); border-left: .25rem solid var(--fc, #a05a2c); border-radius: .2rem; font: 500 1.25rem/1.45 "TKSans", "Avenir Next", "Helvetica Neue", sans-serif; color: #e8ddc9; }
+  #menu .gen-card b { font: 700 1.7rem/1.2 "TKSerif", "Kaiti SC", "STKaiti", "KaiTi", "HudBrush", serif; color: #f2c14e; }
+  #menu .gen-card .w { display: block; margin-top: .2rem; color: #ffe7a3; font-weight: 600; }
+  #menu.panel-open .t { font-size: 5.5rem; letter-spacing: .3rem; }
+  #menu.panel-open .t i { font-size: 1.3rem; vertical-align: 1rem; margin-left: .6rem; }
+  #menu.panel-open .menu-panel { margin-top: .8rem; }
+  #menu.panel-open .en, #menu.panel-open .sub { display: none; }
+  #menu .hint { margin: 1.4rem 0 0 .4rem; font: 500 1.35rem/1.5 "TKSans", "Avenir Next", "Helvetica Neue", sans-serif; letter-spacing: .08em; opacity: .7; }
+  /* T0.4: demo-only button that jumps straight to the 'result' stub scene from the in-match pause screen, since
+     match/match.js (Giai đoạn 3) doesn't decide real match end yet. */
+  #menu .end-demo { align-self: flex-start; margin: 1.2rem 0 0 .2rem; padding: .6rem 1.4rem; cursor: pointer;
+    border: .12rem solid rgba(239,227,207,.4); border-radius: .4rem; background: rgba(20,14,10,.6); color: #efe3cf;
+    font: 600 1.3rem/1 "TKSans", "Avenir Next", "Helvetica Neue", sans-serif; letter-spacing: .08em; }
+  #menu .end-demo:hover { border-color: #f2c14e; }
+  /* T0.4: generic stub screen for scenes with no real UI yet (modeSelect/lobby/pick/result) — same palette as
+     #menu, centered card instead of the left-aligned title layout. */
+  #stub { position: fixed; inset: 0; z-index: 3; display: flex; align-items: center; justify-content: center;
+    background: rgba(10,7,5,.88); color: #f4ead8; font-family: "TKSerif", "Kaiti SC", "STKaiti", "KaiTi", "HudBrush", serif; }
+  #stub[hidden] { display: none; }
+  #stub .card { max-width: 46rem; padding: 3.2rem 3.6rem; text-align: center; border-radius: .6rem;
+    background: linear-gradient(180deg, rgba(30,20,15,.9), rgba(14,10,8,.95)); box-shadow: 0 0 0 .15rem #5a3a10, 0 1rem 3rem rgba(0,0,0,.6); }
+  #stub .s-title { font: 700 3.2rem/1.2 "TKSerif", "Xingkai SC", "STXingkai", "HudBrush", serif; color: #f2c14e; letter-spacing: .2rem; }
+  #stub .s-sub { margin: 1.2rem 0 0; font: 500 1.5rem/1.6 "TKSans", "Avenir Next", "Helvetica Neue", sans-serif; color: #cdbb9c; letter-spacing: .04em; }
+  #stub button { margin: 2.2rem .5rem 0; padding: 1rem 3rem; cursor: pointer; border: 0; border-radius: .4rem;
+    font: 700 1.7rem/1 "TKSerif", "Xingkai SC", "STXingkai", "HudBrush", serif; letter-spacing: .2rem; color: #1a120d;
+    background: linear-gradient(#ffe7a3, #f2c14e 55%, #c98a22); box-shadow: 0 0 0 .12rem #5a3a10; }
+  #stub button:hover { filter: brightness(1.1); }
+  #stub .hint { margin-top: 1.6rem; font: 500 1.25rem/1.5 "TKSans", "Avenir Next", "Helvetica Neue", sans-serif; letter-spacing: .06em; opacity: .65; }
+  /* T1.11: HUD quân (?mode=sandbox) — góc dưới bên phải, tách khỏi #hud để không đụng CSS đã tinh chỉnh ở đó. */
+  #army-hud { position: fixed; right: 1.6rem; bottom: 1.6rem; z-index: 1; width: 22rem; padding: 1rem 1.2rem;
+    background: rgba(12,8,6,.72); border: .1rem solid rgba(214,184,130,.5); border-radius: .4rem;
+    color: #f4ead8; font: 600 1.3rem/1.5 "TKSans", "Avenir Next", "Helvetica Neue", sans-serif; }
+  #army-hud[hidden] { display: none; }
+  #army-hud .ah-order { color: #f2c14e; font-weight: 700; margin-bottom: .5rem; }
+  #army-hud .ah-hp { display: flex; align-items: center; gap: .6rem; margin-bottom: .6rem; }
+  #army-hud .ah-hp span { flex: 0 0 auto; opacity: .8; }
+  #army-hud .ah-hp .bar { flex: 1 1 auto; height: .7rem; background: rgba(0,0,0,.5); border-radius: .35rem; overflow: hidden; }
+  /* Nút tạm dừng trên màn hình — chỉ khi chơi 1 người (với máy / thử / demo), không có trong phòng bạn bè */
+  #pause-btn { position: fixed; top: 1.4rem; left: 50%; transform: translateX(-50%); z-index: 1; padding: .5rem 1.6rem; cursor: pointer;
+    color: #f4ead8; background: rgba(12,8,6,.72); border: .1rem solid rgba(214,184,130,.55); border-radius: .4rem;
+    font: 700 1.3rem/1 "TKSans", "Avenir Next", "Helvetica Neue", sans-serif; letter-spacing: .05em; }
+  #pause-btn:hover { background: rgba(60,44,32,.9); border-color: #f2c14e; }
+  #pause-btn[hidden] { display: none; }
+  #army-hud .ah-potion { display: flex; gap: .8rem; align-items: baseline; margin: -.2rem 0 .6rem; font-size: 1.1rem; color: #b9f2c4; }
+  #army-hud .ah-potion em { font-style: normal; color: #ffb59a; }
+  #hud .h-player .mu { display: none; }   /* kỹ năng Musou đã tắt: ẩn thanh Musou */
+  #army-hud .ah-hp .bar i { display: block; height: 100%; background: linear-gradient(#7fe0c8, #2f9c86); }
+  #army-hud .ah-units { display: flex; flex-wrap: wrap; gap: .3rem .9rem; font-size: 1.15rem; opacity: .9; }
+  #army-hud .ah-units b { color: #f2c14e; }
+  /* T3: đồng hồ trận, thanh máu cột cờ, tiến độ kéo cờ trung tâm, hồi sinh */
+  #army-hud .ah-clock { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: .4rem; font-size: 1.05rem; opacity: .85; }
+  #army-hud .ah-clock b { font-size: 1.9rem; color: #f4ead8; letter-spacing: .05em; }
+  #army-hud .ah-flags { display: flex; flex-direction: column; gap: .35rem; margin-bottom: .6rem; }
+  #army-hud .fr { display: flex; align-items: center; gap: .5rem; }
+  #army-hud .fr .fc, #result .fc { display: inline-flex; align-items: center; justify-content: center; width: 1.7rem; height: 1.7rem; border-radius: .25rem;
+    font: 700 1.1rem/1 "TKSerif", "Xingkai SC", "STXingkai", "HudBrush", serif; color: #f8e6d2; text-shadow: 0 1px 2px #000; flex: 0 0 auto; }
+  #army-hud .fr .bar { flex: 1 1 auto; height: .6rem; background: rgba(0,0,0,.5); border-radius: .3rem; overflow: hidden; }
+  #army-hud .fr .bar i { display: block; height: 100%; background: linear-gradient(#ff9a7a, #c2432a); }
+  #army-hud .fr.mine .bar i { background: linear-gradient(#ffe7a3, #d9a63a); }
+  #army-hud .fr.cut { opacity: .45; }
+  #army-hud .fr b { flex: 0 0 4.2rem; text-align: right; font-size: 1.05rem; opacity: .85; }
+  #army-hud .ah-center { margin-bottom: .6rem; font-size: 1.05rem; }
+  #army-hud .ah-center .bar { height: .5rem; margin-top: .25rem; background: rgba(0,0,0,.5); border-radius: .25rem; overflow: hidden; }
+  #army-hud .ah-center .bar i { display: block; height: 100%; width: 0; background: linear-gradient(#e8e2d4, #a8a090); }
+  #army-hud .ah-center.active .c-label { color: #7fe0c8; }
+  #army-hud .ah-respawn { margin-bottom: .6rem; padding: .4rem .6rem; background: rgba(120,20,10,.7); border-radius: .3rem; color: #ffd9c8; font-size: 1.1rem; }
+  #army-hud .ah-respawn[hidden] { display: none; }
+  /* T3.7: minimap thay minimap Musou cũ (#hud .h-map) khi chơi sandbox */
+  #minimap { position: fixed; right: 2.4%; top: 4.2rem; z-index: 1; width: 20rem; height: 20rem; display: block;
+    box-shadow: 0 0 0 .1rem rgba(214,184,130,.75), 0 0 0 .25rem rgba(0,0,0,.45), 0 .4rem 1rem rgba(0,0,0,.4); }
+  #minimap[hidden] { display: none; }
+  body.match-mode #hud .h-map { display: none; }
+  /* T8 (mục 16, tạm — sắp xếp lại đúng nút 15–18 là T8.12/T8.15): bàn phím không áp dụng khi cảm ứng; dời #army-hud
+     lên góc trên trái (tránh đè lên cụm nút lệnh/hồi máu bên phải và cần di chuyển bên trái ở GÓC DƯỚI — hai vùng
+     không chung tầng cao/thấp nên không chạm nhau), thu nhỏ lại cho vừa màn hẹp. */
+  body.touch #hud .h-intro .keys { display: none; }
+  body.touch #army-hud { left: max(1rem, env(safe-area-inset-left)); right: auto; top: 6rem; bottom: auto;
+    width: 15rem; padding: .6rem .7rem; font-size: .8em; max-height: 62vh; overflow-y: auto; }
+  body.touch #minimap { width: 13rem; height: 13rem; }
+  /* T3.6: màn kết quả */
+  #result { position: fixed; inset: 0; z-index: 3; display: flex; align-items: center; justify-content: center;
+    background: rgba(10,7,5,.9); color: #f4ead8; font-family: "TKSerif", "Kaiti SC", "STKaiti", "KaiTi", "HudBrush", serif; }
+  #result[hidden] { display: none; }
+  #result .card { min-width: 52rem; max-width: 80vw; padding: 3rem 3.6rem; text-align: center; border-radius: .6rem;
+    background: linear-gradient(180deg, rgba(30,20,15,.92), rgba(14,10,8,.96)); box-shadow: 0 0 0 .15rem #5a3a10, 0 1rem 3rem rgba(0,0,0,.6); }
+  #result .r-title { font: 700 5rem/1.1 "TKSerif", "Xingkai SC", "STXingkai", "HudBrush", serif; letter-spacing: .3rem; }
+  #result .r-title.win { color: #f2c14e; } #result .r-title.lose { color: #c8b8a8; } #result .r-title.draw { color: #9cc8ff; }
+  #result .r-sub { margin: .6rem 0 1.8rem; font: 500 1.5rem/1.4 "TKSans", "Avenir Next", "Helvetica Neue", sans-serif; opacity: .75; }
+  #result .r-table { width: 100%; border-collapse: collapse; font: 600 1.5rem/1.3 "TKSans", "Avenir Next", "Helvetica Neue", sans-serif; }
+  #result .r-table th { font-size: 1.15rem; font-weight: 600; opacity: .6; text-transform: uppercase; letter-spacing: .06em; padding: .5rem .8rem; text-align: right; }
+  #result .r-table td { padding: .7rem .8rem; text-align: right; border-top: .08rem solid rgba(214,184,130,.2); }
+  #result .r-table th:nth-child(2), #result .r-table td:nth-child(2) { text-align: left; }
+  #result .r-table tr.me td { background: rgba(242,193,78,.08); }
+  #result .r-table tr.out td { opacity: .5; }
+  #result .r-table em { font-style: normal; font-size: 1.1rem; opacity: .7; } #result .r-table em.w { color: #f2c14e; opacity: 1; }
+  #result .r-back { margin-top: 2.2rem; padding: 1rem 3rem; cursor: pointer; border: 0; border-radius: .4rem;
+    font: 700 1.7rem/1 "TKSerif", "Xingkai SC", "STXingkai", "HudBrush", serif; letter-spacing: .2rem; color: #1a120d;
+    background: linear-gradient(#ffe7a3, #f2c14e 55%, #c98a22); box-shadow: 0 0 0 .12rem #5a3a10; }
+  #result .r-back:hover { filter: brightness(1.1); }
+  /* T2.8: vàng/tổng kiếm được/thu nhập-giây, nhấp nháy khi đang ×1.5 (giữ cờ trung tâm). */
+  #army-hud .ah-gold { display: flex; align-items: baseline; gap: .7rem; margin-bottom: .7rem; padding-bottom: .6rem; border-bottom: .08rem solid rgba(214,184,130,.3); }
+  #army-hud .ah-gold .g-amt { color: #ffe7a3; font-size: 1.6rem; }
+  #army-hud .ah-gold .g-earned, #army-hud .ah-gold .g-rate { font-size: 1.05rem; opacity: .75; }
+  #army-hud .ah-gold.boosted .g-rate { color: #7fe0c8; animation: ah-blink 0.9s ease-in-out infinite; }
+  @keyframes ah-blink { 0%, 100% { opacity: .75; } 50% { opacity: 1; } }
+
+  /* T2.7: bảng cửa hàng (phím B) — nổi trên HUD, KHÔNG dừng trận (khác #menu khi Esc). */
+  #shop { position: fixed; left: 1.6rem; bottom: 1.6rem; z-index: 1; width: 30rem; max-height: 80vh; overflow-y: auto;
+    color: #f4ead8; font: 600 1.25rem/1.4 "TKSans", "Avenir Next", "Helvetica Neue", sans-serif; }
+  #shop[hidden] { display: none; }
+  #shop .card { padding: 1.2rem 1.4rem; background: rgba(12,8,6,.85); border: .1rem solid rgba(214,184,130,.5); border-radius: .4rem; }
+  #shop .shop-head { display: flex; justify-content: space-between; align-items: baseline; font: 700 1.7rem/1 "TKSerif", "Xingkai SC", "STXingkai", "HudBrush", serif; color: #f2c14e; margin-bottom: .3rem; }
+  #shop .shop-cap { font-size: 1.1rem; opacity: .7; margin-bottom: .9rem; }
+  #shop .shop-h { font-size: 1.05rem; letter-spacing: .06em; opacity: .65; text-transform: uppercase; margin: 1rem 0 .4rem; }
+  #shop .shop-rows { display: flex; flex-direction: column; gap: .4rem; }
+  #shop .shop-row { display: flex; align-items: center; gap: .6rem; padding: .4rem .1rem; }
+  #shop .shop-row span { flex: 1 1 auto; }
+  #shop .shop-row .p { flex: 0 0 auto; opacity: .8; font-size: 1.05rem; }
+  #shop .shop-row button { flex: 0 0 auto; padding: .4rem 1.1rem; cursor: pointer; border: 0; border-radius: .3rem;
+    font: 700 1.15rem/1 "TKSans", "Avenir Next", "Helvetica Neue", sans-serif; color: #1a120d;
+    background: linear-gradient(#ffe7a3, #f2c14e 55%, #c98a22); }
+  #shop .shop-row.disabled button { cursor: not-allowed; background: #5a5248; color: #9a9284; }
+  #shop .shop-row.disabled { opacity: .55; }
+  #shop .shop-msg { min-height: 1.4rem; margin-top: .8rem; color: #ff8a70; font-size: 1.1rem; }
+  #shop .hint { margin-top: .6rem; font: 500 1.1rem/1.4 "TKSans", "Avenir Next", "Helvetica Neue", sans-serif; opacity: .6; }
+  /* T4.3/T4.4: chọn chế độ, phòng chờ, chọn phe & tướng — cùng bảng màu với #stub. */
+  #lobby, #pick { position: fixed; inset: 0; z-index: 3; display: flex; align-items: center; justify-content: center;
+    background: rgba(10,7,5,.9); color: #f4ead8; font-family: "TKSerif", "Kaiti SC", "STKaiti", "KaiTi", "HudBrush", serif; }
+  #lobby[hidden], #pick[hidden] { display: none; }
+  #lobby .card, #pick .card { min-width: 40rem; max-width: min(92vw, 62rem); padding: 3rem 3.6rem; text-align: center; border-radius: .6rem;
+    background: linear-gradient(180deg, rgba(30,20,15,.92), rgba(14,10,8,.96)); box-shadow: 0 0 0 .15rem #5a3a10, 0 1rem 3rem rgba(0,0,0,.6); }
+  #pick .card.wide { min-width: 62rem; max-width: 92vw; }
+  #lobby .s-title, #pick .s-title { font: 700 3.2rem/1.2 "TKSerif", "Xingkai SC", "STXingkai", "HudBrush", serif; color: #f2c14e; letter-spacing: .2rem; }
+  #lobby .s-sub, #pick .s-sub { margin: 1rem 0 0; font: 500 1.5rem/1.6 "TKSans", "Avenir Next", "Helvetica Neue", sans-serif; color: #cdbb9c; }
+  #lobby .lb-body { margin-top: 1.6rem; font: 600 1.5rem/1.4 "TKSans", "Avenir Next", "Helvetica Neue", sans-serif; }
+  #lobby .lb-group.stack { flex-direction: column; align-items: center; gap: .8rem; }
+  #lobby .lb-group.stack > span { flex: none; text-align: center; }
+  #lobby .lb-group.stack > div { justify-content: center; }
+  #lobby .lb-row { display: flex; justify-content: space-between; align-items: center; gap: 1.4rem; margin: .8rem 0; }
+  #lobby input { font: 600 1.6rem/1 "TKSans", "Avenir Next", "Helvetica Neue", sans-serif; padding: .7rem 1rem; width: 16rem; color: #f4ead8;
+    background: rgba(0,0,0,.4); border: .1rem solid rgba(214,184,130,.5); border-radius: .3rem; text-align: center; letter-spacing: .15em; }
+  #lobby .lb-group { display: flex; align-items: center; justify-content: space-between; gap: 1.6rem; margin: .9rem 0; text-align: left; }
+  #lobby .lb-group > span { flex: 0 0 11rem; opacity: .8; }
+  #lobby .lb-group > div { display: flex; flex-wrap: wrap; gap: .5rem; justify-content: flex-end; }
+  #lobby .chip { padding: .5rem 1.1rem; cursor: pointer; border-radius: .3rem; font: 600 1.3rem/1 "TKSans", "Avenir Next", "Helvetica Neue", sans-serif; color: #f4ead8;
+    background: rgba(60,44,32,.9); border: .1rem solid rgba(214,184,130,.35); }
+  #lobby .chip.on { color: #1a120d; background: linear-gradient(#ffe7a3, #f2c14e 55%, #c98a22); border-color: #5a3a10; }
+  #lobby .lb-list { list-style: none; margin: 0; padding: 0; text-align: left; }
+  #lobby .lb-list li { display: flex; justify-content: space-between; gap: 2rem; padding: .7rem .9rem; border-top: .08rem solid rgba(214,184,130,.2); }
+  #lobby .lb-list li.me { background: rgba(242,193,78,.08); }
+  #lobby .lb-list em { font-style: normal; font-size: 1.15rem; opacity: .65; }
+  #lobby .lb-list b { font-weight: 600; opacity: .6; } #lobby .lb-list b.ok { color: #7fe0c8; opacity: 1; }
+  #lobby .lb-err { min-height: 1.6rem; margin-top: 1rem; color: #ff8a70; font: 500 1.3rem/1.4 "TKSans", "Avenir Next", "Helvetica Neue", sans-serif; }
+  #lobby .lb-btns button, #pick .pk-fac, #pick .pk-gen { margin: 1rem .5rem 0; padding: 1rem 2.6rem; cursor: pointer; border: 0; border-radius: .4rem;
+    font: 700 1.6rem/1 "TKSerif", "Xingkai SC", "STXingkai", "HudBrush", serif; letter-spacing: .15rem; color: #1a120d;
+    background: linear-gradient(#ffe7a3, #f2c14e 55%, #c98a22); box-shadow: 0 0 0 .12rem #5a3a10; }
+  #lobby .lb-btns button.secondary { color: #f4ead8; background: rgba(60,44,32,.9); box-shadow: 0 0 0 .1rem rgba(214,184,130,.4); }
+  #lobby .lb-btns button:disabled { cursor: not-allowed; color: #9a9284; background: #4a443c; box-shadow: none; }
+  #lobby .lb-btns button:not(:disabled):hover { filter: brightness(1.1); }
+  #lobby .hint, #pick .hint { margin-top: 1.4rem; font: 500 1.2rem/1.5 "TKSans", "Avenir Next", "Helvetica Neue", sans-serif; opacity: .6; }
+  #pick .pk-clock { margin: .8rem 0 0; font: 700 4rem/1 "TKSerif", "Xingkai SC", "STXingkai", "HudBrush", serif; color: #ffe7a3; }
+  #pick .pk-clock.urgent { color: #ff6a4a; }
+  #pick .pk-factions, #pick .pk-generals { display: flex; flex-wrap: wrap; justify-content: center; gap: .4rem; margin-top: 1rem; }
+  #pick .pk-h { flex: 1 0 100%; font: 600 1.3rem/1 "TKSans", "Avenir Next", "Helvetica Neue", sans-serif; opacity: .7; text-transform: uppercase; letter-spacing: .08em; }
+  #pick .pk-fac, #pick .pk-gen { margin: .3rem; padding: .9rem 1.4rem; display: inline-flex; align-items: center; gap: .8rem; font-size: 1.5rem; }
+  #pick .pk-fac small, #pick .pk-gen small { font: 500 1.05rem/1 "TKSans", "Avenir Next", "Helvetica Neue", sans-serif; letter-spacing: 0; opacity: .8; }
+  #pick .pk-fac.taken { background: #4a443c; color: #b6ab9a; box-shadow: none; }
+  #pick .pk-fac.taken.mine, #pick .pk-gen.mine { outline: .2rem solid #7fe0c8; }
+  #pick .pk-fac:disabled { cursor: not-allowed; }
+  #pick .f-flag { display: inline-flex; align-items: center; justify-content: center; width: 2.4rem; height: 2.4rem; border-radius: .25rem; color: #f8e6d2; font-size: 1.4rem; box-shadow: 0 0 0 1px rgba(255,255,255,.3); }
+  #pick .pk-players { list-style: none; margin: 1.6rem 0 0; padding: 0; text-align: left; font: 600 1.4rem/1.3 "TKSans", "Avenir Next", "Helvetica Neue", sans-serif; }
+  #pick .pk-players li { display: flex; gap: 1rem; padding: .6rem .9rem; border-top: .08rem solid rgba(214,184,130,.2); }
+  #pick .pk-players li.me { background: rgba(242,193,78,.08); } #pick .pk-players li.turn { background: rgba(127,224,200,.12); }
+  #pick .pk-players i { font-style: normal; width: 2rem; opacity: .6; } #pick .pk-players span { flex: 1; } #pick .pk-players b { font-weight: 600; opacity: .85; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="hud"></div>
+<!-- T1.11: HUD quân riêng (army/units.js) — chỉ hiện khi có game.army (?mode=sandbox, T1.10). -->
+<div id="army-hud" hidden></div>
+<!-- T2.7: cửa hàng (phím B) — chỉ hiện khi có game.army (?mode=sandbox, T1.10). -->
+<div id="shop" hidden></div>
+<!-- T3.7: minimap trận (thay minimap Musou cũ khi ?mode=sandbox) -->
+<canvas id="minimap" width="240" height="240" hidden></canvas>
+<!-- Giai đoạn 8 (mục 16): điều khiển cảm ứng (src/ui/touch.js) — chỉ hiện khi <body class="touch"> (src/core/device.js). -->
+<div id="touch" hidden></div>
+<!-- T8.3: chỉ chơi màn ngang — CSS tự hiện khi body có cả class touch và portrait (main.js theo dõi orientation),
+     không cần JS bật/tắt riêng nên không có thuộc tính hidden ở đây. -->
+<div id="rotate-overlay">
+  <div class="ic">⟳</div>
+  <div data-i18n="touch.rotate"></div>
+</div>
+<!-- T3.6: màn kết quả trận đấu -->
+<button id="pause-btn" type="button" hidden><span>⏸</span> <b data-i18n="hud.pause">Pause</b></button>
+<div id="result" hidden></div>
+<!-- T4.3/T4.4: chọn chế độ + phòng chờ, chọn phe & tướng (src/ui/lobby.js, src/ui/pick.js) -->
+<div id="lobby" hidden></div>
+<div id="pick" hidden></div>
+<div id="menu">
+  <div class="t">趙雲<i>常山</i></div>
+  <div class="en">VOXEL MUSOU</div>
+  <div class="sub" data-i18n="title.sub">一杆長槍，獨闖敵軍三百</div>
+
+  <!-- Màn hình chính: Bắt đầu / Ngôn ngữ / Âm thanh / Hướng dẫn chơi (ui/menu.js). Khi tạm dừng giữa trận, "Bắt đầu" đổi thành "Tiếp tục". -->
+  <nav class="menu-nav" id="menu-nav">
+    <button id="go" type="button"><small data-i18n="title.start">START</small></button>
+    <button id="nav-lang" class="secondary" type="button" data-i18n="menu.language">Language</button>
+    <button id="nav-sound" class="secondary" type="button" data-i18n="menu.sound">Sound</button>
+    <button id="nav-guide" class="secondary" type="button" data-i18n="menu.guide">How to play</button>
+  </nav>
+
+  <section class="menu-panel" id="panel-lang" hidden>
+    <h2 data-i18n="menu.language">Language</h2>
+    <div class="f-chips" id="langs"></div>
+    <button type="button" class="panel-back secondary" data-i18n="common.back">Back</button>
+  </section>
+
+  <section class="menu-panel" id="panel-sound" hidden>
+    <h2 data-i18n="sound.title">Sound</h2>
+    <div class="sound-row">
+      <span data-i18n="sound.volume">Volume</span>
+      <input id="volume" type="range" min="0" max="100" step="1" aria-label="Volume">
+      <b id="volume-val">80</b>
+    </div>
+    <button id="mute" type="button" class="secondary small" data-i18n="sound.mute">Mute</button>
+    <div class="hint" data-i18n="sound.hint"></div>
+    <button type="button" class="panel-back secondary" data-i18n="common.back">Back</button>
+  </section>
+
+  <section class="menu-panel" id="panel-guide" hidden>
+    <h2 data-i18n="guide.title">How to play</h2>
+    <div class="guide-scroll">
+      <h3 data-i18n="guide.controls">Controls</h3>
+      <table>
+        <tr><td>移動<small data-i18n="key.move">MOVE</small></td><td data-i18n-html="key.move.desc"></td></tr>
+        <tr><td>攻擊<small data-i18n="key.attack">ATTACK</small></td><td data-i18n-html="key.attack.desc"></td></tr>
+        <tr><td>蓄力<small data-i18n="key.charge">CHARGE</small></td><td data-i18n-html="key.charge.desc"></td></tr>
+        <!-- Tạm tắt: bỏ comment khi Nhảy/Né đòn/Musou dùng lại được (xem src/core/input.js).
+        <tr><td>跳躍<small>JUMP</small></td><td><kbd>Space</kbd></td></tr>
+        <tr><td>閃避<small>DODGE</small></td><td><kbd>L</kbd> / <kbd>Shift</kbd></td></tr>
+        <tr><td>無雙<small>MUSOU</small></td><td><kbd>I</kbd> — when the gold gauge is full</td></tr>
+        -->
+        <tr><td>視角<small data-i18n="key.camera">CAMERA</small></td><td data-i18n-html="key.camera.desc"></td></tr>
+        <tr><td>藥<small data-i18n="key.heal">HEAL</small></td><td data-i18n-html="key.heal.desc"></td></tr>
+        <tr><td>號令<small data-i18n="key.orders">ORDERS</small></td><td data-i18n-html="key.orders.desc"></td></tr>
+        <tr><td>商店<small data-i18n="key.shop">SHOP</small></td><td data-i18n-html="key.shop.desc"></td></tr>
+      </table>
+      <h3 data-i18n="guide.generals">Generals</h3>
+      <div class="hint" data-i18n="guide.generalsNote"></div>
+      <div id="guide-generals"></div>
+    </div>
+    <button type="button" class="panel-back secondary" data-i18n="common.back">Back</button>
+  </section>
+
+  <!-- Chỉ hiện khi tạm dừng giữa trận (scene 'match'); main.js ẩn/hiện tùy chế độ. -->
+  <button id="end-match-demo" class="end-demo" type="button" data-i18n="menu.endDemo" hidden>End match (demo)</button>
+  <button id="leave-match" class="end-demo" type="button" data-i18n="menu.leave" hidden>Leave match</button>
+  <div class="hint" id="menu-hint" data-i18n="title.hint">Enter to start · Esc to pause</div>
+</div>
+
+<!-- T0.4: màn hình dùng chung cho các scene chưa có UI riêng (chọn chế độ / phòng chờ / chọn phe & tướng / kết
+     quả) — main.js đổi nội dung + hành vi nút theo scene hiện tại (src/core/scenes.js). -->
+<div id="stub" hidden>
+  <div class="card">
+    <div class="s-title"></div>
+    <div class="s-sub"></div>
+    <button id="stub-go" type="button"></button>
+    <div class="hint">Esc — quay lại màn hình chính</div>
+  </div>
+</div>
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>
