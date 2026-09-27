@@ -137,7 +137,7 @@ const minimap = createMinimap(minimapEl, game);
 // core/device.js; touch.js chỉ tồn tại — hiện/ẩn theo scene ở sceneManager bên dưới, giống #army-hud/#minimap.
 applyTouchClass();
 const touchEl = document.getElementById('touch');
-const touchControls = createTouchControls(touchEl, input);
+const touchControls = createTouchControls(touchEl, input, () => shopCtx());   // shopCtx khai báo dưới — hàm bọc để tránh vấn đề thứ tự khai báo, chỉ thật sự gọi lúc chạy (sau khi shopCtx đã có)
 // T8.3: chỉ chơi màn ngang — lớp phủ CSS (#rotate-overlay) tự hiện khi <body class="touch portrait">; JS chỉ có
 // việc theo dõi hướng máy thật (không đụng sim/pause — trận vẫn chạy dưới lớp phủ, giống Esc không dừng trận nhiều
 // người: người này xoay máy không được làm phòng khựng lại).

@@ -58,6 +58,27 @@
   #touch .tc-heal b { font: 700 1.2rem var(--kai); color: #fff; }
   #touch .tc-heal.on { background: rgba(63,184,176,.8); }
   #touch .tc-heal.empty b { color: #c98; }
+  /* T8.10/T8.11: mua nhanh (9–13) + nâng cấp (14) — ngay dưới minimap (top:4.2rem, cao 13rem trên cảm ứng → hết ở
+     17.2rem), 2 hàng × 3 nút, khớp cách xếp trong ảnh thiết kế mục 16.2 (11,10,9 / 14,13,12). */
+  #touch .tc-shop { position: absolute; right: max(1.2rem, env(safe-area-inset-right)); top: 17.6rem; width: 13rem;
+    display: flex; flex-wrap: wrap; gap: .4rem; justify-content: flex-end; }
+  #touch .tc-buy { width: 3.9rem; height: 3.9rem; border-radius: 50%; border: .1rem solid rgba(244,234,216,.4);
+    background: rgba(20,14,10,.68); color: #f4ead8; font: 600 .68rem/1 var(--sans); display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: .05rem; padding: 0 .1rem; text-align: center; }
+  #touch .tc-buy b { font: 700 .95rem var(--kai); color: #f2c14e; }
+  #touch .tc-buy span { max-width: 3.4rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #touch .tc-buy .tc-buy-p { font-size: .65rem; opacity: .8; font-style: normal; }
+  #touch .tc-buy.disabled { opacity: .45; }
+  #touch .tc-buy.tc-up { background: rgba(63,120,184,.55); }
+  /* Bảng nâng cấp (nút 14) — nổi giữa vùng cụm mua nhanh, tự đóng khi chạm "Quay lại" hoặc tắt hẳn khi rời trận. */
+  #touch .tc-upgrade { position: absolute; right: max(1.2rem, env(safe-area-inset-right)); top: 22rem; width: 17rem;
+    background: rgba(10,7,6,.92); border: .12rem solid rgba(214,184,130,.5); border-radius: .4rem; padding: .7rem .8rem;
+    display: flex; flex-direction: column; gap: .45rem; color: #f4ead8; font: 600 .95rem/1.2 var(--sans); }
+  #touch .tc-upgrade[hidden] { display: none; }
+  #touch .tc-up-row { display: flex; align-items: center; justify-content: space-between; gap: .6rem; }
+  #touch .tc-up-row button { padding: .3rem .8rem; border-radius: .3rem; border: 0; background: rgba(242,193,78,.85); color: #2a1c10; font-weight: 700; }
+  #touch .tc-up-row button:disabled { background: rgba(120,110,95,.5); color: #ccc; }
+  #touch .tc-up-close { align-self: center; margin-top: .2rem; padding: .3rem 1.2rem; border-radius: .3rem; border: .1rem solid rgba(244,234,216,.4); background: transparent; color: #f4ead8; }
 
   /* ---- T8.3: chỉ chơi màn ngang. ---- */
   #rotate-overlay { display: none; position: fixed; inset: 0; z-index: 20; background: rgba(10,7,6,.96); color: #f4ead8;
