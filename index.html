@@ -22,63 +22,105 @@
   body.touch * { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
   body.touch input, body.touch textarea { -webkit-user-select: text; user-select: text; touch-action: manipulation; }
 
-  /* ---- T8.5–T8.9: điều khiển cảm ứng (ui/touch.js). Chỉ hiện khi <body class="touch">. Vùng an toàn (tai thỏ,
-     thanh điều hướng) trừ vào lề bằng env(safe-area-inset-*) — 0 trên máy không hỗ trợ. ---- */
-  /* z-index 1 = cùng tầng #army-hud/#minimap/#pause-btn: khi tạm dừng, #menu (z-index 2) tự phủ lên trên, không cần
-     JS ẩn/hiện #touch riêng lúc tạm dừng (main.js chỉ ẩn/hiện theo scene, giống #army-hud/#minimap). */
+  /* ---- T8.5–T8.14: HUD cảm ứng (ui/touch.js) — bố cục theo ảnh thiết kế 18 nút ở mục 16.2. Chỉ hiện khi
+     <body class="touch">. Vùng an toàn (tai thỏ, thanh điều hướng) trừ vào lề bằng env(safe-area-inset-*) — 0 trên
+     máy không hỗ trợ. z-index 1 = cùng tầng #minimap: khi tạm dừng, #menu (z-index 2) tự phủ lên trên.
+     CỠ NÚT: 1rem = 1/72 chiều cao màn (index.html), điện thoại nằm ngang chỉ cao ~375–420 px CSS nên 1rem ≈ 5,2–5,8 px
+     → nút bấm phải ≥ 7rem mới đạt ~40 px thật (mức tối thiểu để ngón tay bấm trúng). ---- */
   #touch { display: none; position: fixed; inset: 0; z-index: 1; color: #f4ead8; font-family: var(--sans); }
-  /* main.js ẩn/hiện #touch bằng thuộc tính `hidden` ở đúng những màn có tướng để điều khiển (giống #army-hud,
-     #minimap) — :not([hidden]) để display:block không đè lên lúc đang hidden. */
+  #touch > * { position: absolute; }
   body.touch #touch:not([hidden]) { display: block; }
-  #touch .tc-move, #touch .tc-cam, #touch .tc-attack, #touch .tc-ord, #touch .tc-heal { touch-action: none; }
-  #touch .tc-move { position: absolute; left: max(2rem, env(safe-area-inset-left)); bottom: max(2rem, env(safe-area-inset-bottom));
-    width: 11rem; height: 11rem; border-radius: 50%; background: rgba(20,14,10,.4); box-shadow: inset 0 0 0 .15rem rgba(244,234,216,.3); }
+  #touch button { -webkit-tap-highlight-color: transparent; padding: 0; }
+  #touch .tc-move, #touch .tc-cam, #touch .tc-attack, #touch .tc-ord, #touch .tc-heal, #touch .tc-buy, #touch .tc-menu { touch-action: none; }
+
+  /* 16 avatar + thanh máu tướng · 18 đồng hồ · 17 tiền — góc trên trái (thay bảng chữ #army-hud trên cảm ứng) */
+  #touch .tc-top { left: max(1.4rem, env(safe-area-inset-left)); top: max(1.2rem, env(safe-area-inset-top));
+    display: flex; flex-direction: column; gap: .6rem; }
+  #touch .tc-hero { display: flex; align-items: center; gap: .7rem; }
+  #touch .tc-ava { width: 5rem; height: 5rem; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    font: 700 2.6rem/1 var(--kai); color: #fff; text-shadow: 0 .1rem .2rem rgba(0,0,0,.6); box-shadow: 0 0 0 .18rem rgba(244,234,216,.85); }
+  #touch .tc-hp { width: 13rem; height: 1.3rem; border-radius: .65rem; background: rgba(10,7,6,.7); overflow: hidden; box-shadow: 0 0 0 .12rem rgba(0,0,0,.55); }
+  #touch .tc-hp i { display: block; height: 100%; width: 100%; background: linear-gradient(#7fe0c8, #2f9c86); }
+  #touch .tc-clock { display: inline-flex; align-items: center; gap: .4rem; padding: .3rem .9rem; border-radius: 1.4rem;
+    background: rgba(10,7,6,.66); font: 700 1.7rem/1.2 var(--sans); }
+  #touch .tc-clock em { font-style: normal; font-size: 1.4rem; opacity: .8; }
+  #touch .tc-gold { display: inline-flex; align-items: center; gap: .45rem; margin-left: .4rem; font: 700 1.9rem/1 var(--sans);
+    color: #f2c14e; text-shadow: 0 .1rem .25rem rgba(0,0,0,.85); }
+  #touch .tc-gold em { font-style: normal; font-size: 1.6rem; }
+
+  /* 15 cờ trung tâm — giữa trên, viền + vạch tiến độ theo màu phe đang giữ/đang kéo */
+  #touch .tc-flag { left: 50%; transform: translateX(-50%); top: max(1.2rem, env(safe-area-inset-top));
+    display: flex; align-items: center; gap: .55rem; padding: .45rem 1.4rem; border-radius: 1.6rem; overflow: hidden;
+    background: rgba(10,7,6,.7); box-shadow: 0 0 0 .14rem var(--fc, #8d8577); font: 700 1.6rem/1.2 var(--sans); white-space: nowrap; }
+  #touch .tc-flag em { font-style: normal; color: var(--fc, #8d8577); }
+  #touch .tc-flag .tc-flag-bar { position: absolute; left: 0; bottom: 0; height: .28rem; width: 0; background: var(--fc, #8d8577); }
+  #touch .tc-flag.capturing { animation: tc-blink 1s ease-in-out infinite; }
+  @keyframes tc-blink { 50% { opacity: .55; } }
+
+  /* nút ⋯ (T8.14) — thay phím Esc trên điện thoại; góc trên phải, ngay trên minimap */
+  #touch .tc-menu { right: max(1.2rem, env(safe-area-inset-right)); top: max(.9rem, env(safe-area-inset-top));
+    width: 7rem; height: 5rem; border: 0; border-radius: .7rem; background: rgba(10,7,6,.72); color: #f4ead8; font: 700 2.8rem/1 var(--sans); }
+
+  /* 1 cần di chuyển (dưới trái) — cần "nổi" ngay chỗ vừa chạm, không cố định giữa vòng tròn */
+  #touch .tc-move { left: max(2rem, env(safe-area-inset-left)); bottom: max(2rem, env(safe-area-inset-bottom));
+    width: 16rem; height: 16rem; border-radius: 50%; background: rgba(20,14,10,.42); box-shadow: inset 0 0 0 .18rem rgba(244,234,216,.32); }
   #touch .tc-move.on { background: rgba(20,14,10,.6); }
-  #touch .tc-move-stick { position: absolute; left: 50%; top: 50%; width: 4.6rem; height: 4.6rem; margin: -2.3rem;
-    border-radius: 50%; background: rgba(242,193,78,.55); box-shadow: 0 0 0 .12rem rgba(244,234,216,.55); pointer-events: none; }
-  #touch .tc-cam { position: absolute; right: 0; top: 7rem; bottom: 11rem; left: 40%; }   /* vuốt xoay camera — dưới các nút (stopPropagation); chừa dải trên cùng cho bảng mic #voice (cùng tầng z-index, đứng sau trong DOM nên che mất nút mic nếu phủ lên) */
-  #touch .tc-attack { position: absolute; right: max(2.4rem, env(safe-area-inset-right)); bottom: max(2.2rem, env(safe-area-inset-bottom));
-    width: 9.5rem; height: 9.5rem; border-radius: 50%; border: .15rem solid rgba(244,234,216,.5); background: rgba(179,38,30,.75);
-    color: #f8e6d2; font: 700 1.7rem var(--kai); letter-spacing: .1em; }
-  #touch .tc-attack.on { background: rgba(220,60,50,.9); transform: scale(0.94); }
-  #touch .tc-orders { position: absolute; right: 11.4rem; bottom: 9.6rem; width: 13rem; height: 13rem; }
-  #touch .tc-ord { position: absolute; width: 5rem; height: 5rem; border-radius: 50%; border: .12rem solid rgba(244,234,216,.4);
-    background: rgba(20,14,10,.6); color: #f4ead8; font: 600 .95rem/1.1 var(--sans); display: flex; flex-direction: column;
-    align-items: center; justify-content: center; gap: .1rem; }
-  #touch .tc-ord b { font: 700 1.1rem var(--kai); color: #f2c14e; }
-  #touch .tc-ord.on { background: rgba(60,44,32,.85); }
-  #touch .tc-ord.active { box-shadow: 0 0 0 .16rem #f2c14e; }
-  #touch .tc-orders .tc-ord:nth-child(1) { right: 0; top: 4rem; }      /* 3 · Tấn công */
-  #touch .tc-orders .tc-ord:nth-child(2) { right: 4rem; top: 0; }      /* 4 · Phòng thủ */
-  #touch .tc-orders .tc-ord:nth-child(3) { right: 8rem; top: 4rem; }   /* 5 · Rút lui */
-  #touch .tc-orders .tc-ord:nth-child(4) { right: 4rem; top: 8rem; }   /* 6 · Đi theo */
-  #touch .tc-heal { position: absolute; right: max(2.4rem, env(safe-area-inset-right)); bottom: 12.4rem;
-    width: 5.6rem; height: 5.6rem; border-radius: 50%; border: .12rem solid rgba(244,234,216,.4); background: rgba(63,184,176,.5);
-    color: #f4ead8; font: 600 .85rem/1.15 var(--sans); display: flex; flex-direction: column; align-items: center; justify-content: center; }
-  #touch .tc-heal b { font: 700 1.2rem var(--kai); color: #fff; }
-  #touch .tc-heal.on { background: rgba(63,184,176,.8); }
-  #touch .tc-heal.empty b { color: #c98; }
-  /* T8.10/T8.11: mua nhanh (9–13) + nâng cấp (14) — ngay dưới minimap (top:4.2rem, cao 13rem trên cảm ứng → hết ở
-     17.2rem), 2 hàng × 3 nút, khớp cách xếp trong ảnh thiết kế mục 16.2 (11,10,9 / 14,13,12). */
-  #touch .tc-shop { position: absolute; right: max(1.2rem, env(safe-area-inset-right)); top: 17.6rem; width: 13rem;
-    display: flex; flex-wrap: wrap; gap: .4rem; justify-content: flex-end; }
-  #touch .tc-buy { width: 3.9rem; height: 3.9rem; border-radius: 50%; border: .1rem solid rgba(244,234,216,.4);
-    background: rgba(20,14,10,.68); color: #f4ead8; font: 600 .68rem/1 var(--sans); display: flex; flex-direction: column;
-    align-items: center; justify-content: center; gap: .05rem; padding: 0 .1rem; text-align: center; }
-  #touch .tc-buy b { font: 700 .95rem var(--kai); color: #f2c14e; }
-  #touch .tc-buy span { max-width: 3.4rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  #touch .tc-buy .tc-buy-p { font-size: .65rem; opacity: .8; font-style: normal; }
-  #touch .tc-buy.disabled { opacity: .45; }
-  #touch .tc-buy.tc-up { background: rgba(63,120,184,.55); }
-  /* Bảng nâng cấp (nút 14) — nổi giữa vùng cụm mua nhanh, tự đóng khi chạm "Quay lại" hoặc tắt hẳn khi rời trận. */
-  #touch .tc-upgrade { position: absolute; right: max(1.2rem, env(safe-area-inset-right)); top: 22rem; width: 17rem;
-    background: rgba(10,7,6,.92); border: .12rem solid rgba(214,184,130,.5); border-radius: .4rem; padding: .7rem .8rem;
-    display: flex; flex-direction: column; gap: .45rem; color: #f4ead8; font: 600 .95rem/1.2 var(--sans); }
+  #touch .tc-move-stick { position: absolute; left: 50%; top: 50%; width: 6.6rem; height: 6.6rem; margin: -3.3rem;
+    border-radius: 50%; background: rgba(244,234,216,.55); box-shadow: 0 0 0 .14rem rgba(244,234,216,.6); pointer-events: none; }
+  /* vuốt xoay camera — nửa phải, chừa dải trên (cờ/mua quân/minimap) và dải dưới (cụm nút đánh) */
+  #touch .tc-cam { right: 0; top: 10rem; bottom: 12rem; left: 42%; }
+
+  /* 2 nút đánh (to nhất) + 3/4/5/6 lệnh + 7 hồi máu xếp vòng cung quanh nó — góc dưới phải, đúng ảnh mục 16.2.
+     Tâm nút đánh cách mép phải 16rem / mép dưới 14.5rem; 5 nút nhỏ (7.5rem) nằm trên cung bán kính 11.45rem quanh tâm
+     đó → các vòng tròn cách nhau ~1.2rem, không đè lên nhau và không nút nào tràn ra ngoài màn. */
+  #touch .tc-attack { right: 9.5rem; bottom: 8rem; width: 13rem; height: 13rem; border-radius: 50%; border: .2rem solid rgba(255,255,255,.78);
+    background: #d9432f; color: #fff; font-size: 4.8rem; line-height: 1; box-shadow: 0 .35rem .9rem rgba(0,0,0,.5); }
+  #touch .tc-attack.on { background: #f05a42; transform: scale(.94); }
+  #touch .tc-ord, #touch .tc-heal { width: 7.5rem; height: 7.5rem; border-radius: 50%; border: .16rem solid rgba(255,255,255,.72);
+    font-size: 3rem; line-height: 1; display: flex; align-items: center; justify-content: center; box-shadow: 0 .25rem .6rem rgba(0,0,0,.45); }
+  #touch .tc-ord.on, #touch .tc-heal.on { transform: scale(.92); }
+  #touch .tc-ord.active { box-shadow: 0 0 0 .3rem #f2c14e, 0 .25rem .6rem rgba(0,0,0,.45); }
+  #touch .o-atk { right: 6.18rem; bottom: 20.46rem; background: #f6d3cd; color: #b83a22; }   /* 3 tấn công */
+  #touch .o-ret { right: .8rem; bottom: 10.75rem; background: #fbe6bb; color: #a9760c; }     /* 5 rút lui */
+  #touch .o-def { right: 6.18rem; bottom: 1.04rem; background: #d3e4f7; color: #2a6ba5; }    /* 4 phòng thủ */
+  #touch .tc-heal { right: 18.32rem; bottom: 1.04rem; background: #d2f0de; color: #24875c; } /* 7 hồi máu */
+  #touch .o-fol { right: 23.7rem; bottom: 10.75rem; background: #ebe6dd; color: #6a6158; }   /* 6 đi theo */
+  #touch .tc-heal b { position: absolute; right: -.2rem; bottom: -.2rem; min-width: 2.6rem; height: 2.6rem; border-radius: 1.3rem;
+    background: #1d6b4a; color: #fff; font: 700 1.6rem/2.6rem var(--sans); text-align: center; box-shadow: 0 0 0 .12rem rgba(255,255,255,.5); }
+  #touch .tc-heal.empty { opacity: .5; }
+
+  /* 9–13 mua lính + 14 nâng cấp — trên phải, cạnh trái minimap (8), 2 hàng × 3 nút như ảnh thiết kế */
+  #touch .tc-shop { right: calc(15rem + max(1.2rem, env(safe-area-inset-right))); top: 6.8rem;
+    width: 23rem; display: flex; flex-wrap: wrap; gap: .7rem; justify-content: flex-end; }
+  #touch .tc-buy { position: relative; width: 7rem; height: 7rem; border-radius: 50%; border: .16rem solid rgba(255,255,255,.72);
+    background: #d8efdf; color: #1f7a52; display: flex; align-items: center; justify-content: center; box-shadow: 0 .25rem .6rem rgba(0,0,0,.45); }
+  #touch .tc-buy em { font: 700 3.4rem/1 var(--kai); font-style: normal; }
+  #touch .tc-buy i { position: absolute; right: -.3rem; bottom: -.4rem; padding: 0 .5rem; border-radius: 1rem; background: rgba(12,8,6,.88);
+    color: #f2c14e; font: 700 1.4rem/1.9rem var(--sans); font-style: normal; }
+  #touch .tc-buy.disabled { opacity: .42; }
+  #touch .tc-buy.tc-up { background: #d3e4f7; color: #2a6ba5; }
+  #touch .tc-buy.tc-up em { font-size: 3.8rem; }
+
+  /* bảng nâng cấp (nút 14) — nổi dưới cụm mua quân, tự đóng khi rời trận */
+  #touch .tc-upgrade { right: max(1.2rem, env(safe-area-inset-right)); top: 22.5rem; width: 30rem;
+    background: rgba(10,7,6,.94); border: .14rem solid rgba(214,184,130,.55); border-radius: .6rem; padding: .9rem 1rem;
+    display: flex; flex-direction: column; gap: .6rem; color: #f4ead8; font: 600 1.5rem/1.2 var(--sans); }
   #touch .tc-upgrade[hidden] { display: none; }
-  #touch .tc-up-row { display: flex; align-items: center; justify-content: space-between; gap: .6rem; }
-  #touch .tc-up-row button { padding: .3rem .8rem; border-radius: .3rem; border: 0; background: rgba(242,193,78,.85); color: #2a1c10; font-weight: 700; }
+  #touch .tc-up-row { display: flex; align-items: center; justify-content: space-between; gap: .8rem; }
+  #touch .tc-up-row b { font-size: 1.3rem; opacity: .85; }
+  #touch .tc-up-row button { padding: .5rem 1.2rem; border-radius: .4rem; border: 0; background: rgba(242,193,78,.92); color: #2a1c10; font: 700 1.4rem/1.2 var(--sans); }
   #touch .tc-up-row button:disabled { background: rgba(120,110,95,.5); color: #ccc; }
-  #touch .tc-up-close { align-self: center; margin-top: .2rem; padding: .3rem 1.2rem; border-radius: .3rem; border: .1rem solid rgba(244,234,216,.4); background: transparent; color: #f4ead8; }
+  #touch .tc-up-close { align-self: center; margin-top: .3rem; padding: .5rem 2rem; border-radius: .4rem; border: .12rem solid rgba(244,234,216,.45);
+    background: transparent; color: #f4ead8; font: 600 1.4rem/1.2 var(--sans); }
+
+  /* Trên cảm ứng: bảng chữ #army-hud và nút ⏸ được thay bằng thanh thông tin + nút ⋯ ở trên; minimap (8) về góc phải. */
+  body.touch #army-hud, body.touch #pause-btn { display: none; }
+  body.touch #minimap { width: 13rem; height: 13rem; top: 6.8rem; right: max(1.2rem, env(safe-area-inset-right)); }
+  body.touch #hud .h-intro .keys { display: none; }
+  /* Trong TRẬN trên cảm ứng: HUD cũ của bản demo Musou (tên tướng thư pháp góc trên trái, chân dung + thanh máu to
+     góc dưới trái) bị thanh thông tin mới (.tc-top) và cần di chuyển (.tc-move) đè lên nhau → ẩn đi. Bản demo Musou
+     một mình (không có body.match-mode) vẫn giữ nguyên HUD cũ vì ở đó .tc-top không hiện. */
+  body.touch.match-mode #hud .h-intro, body.touch.match-mode #hud .h-player { display: none; }
 
   /* ---- T8.3: chỉ chơi màn ngang. ---- */
   #rotate-overlay { display: none; position: fixed; inset: 0; z-index: 20; background: rgba(10,7,6,.96); color: #f4ead8;
@@ -384,13 +426,6 @@
     box-shadow: 0 0 0 .1rem rgba(214,184,130,.75), 0 0 0 .25rem rgba(0,0,0,.45), 0 .4rem 1rem rgba(0,0,0,.4); }
   #minimap[hidden] { display: none; }
   body.match-mode #hud .h-map { display: none; }
-  /* T8 (mục 16, tạm — sắp xếp lại đúng nút 15–18 là T8.12/T8.15): bàn phím không áp dụng khi cảm ứng; dời #army-hud
-     lên góc trên trái (tránh đè lên cụm nút lệnh/hồi máu bên phải và cần di chuyển bên trái ở GÓC DƯỚI — hai vùng
-     không chung tầng cao/thấp nên không chạm nhau), thu nhỏ lại cho vừa màn hẹp. */
-  body.touch #hud .h-intro .keys { display: none; }
-  body.touch #army-hud { left: max(1rem, env(safe-area-inset-left)); right: auto; top: 6rem; bottom: auto;
-    width: 15rem; padding: .6rem .7rem; font-size: .8em; max-height: 62vh; overflow-y: auto; }
-  body.touch #minimap { width: 13rem; height: 13rem; }
   /* T3.6: màn kết quả */
   #result { position: fixed; inset: 0; z-index: 3; display: flex; align-items: center; justify-content: center;
     background: rgba(10,7,5,.9); color: #f4ead8; font-family: "TKSerif", "Kaiti SC", "STKaiti", "KaiTi", "HudBrush", serif; }

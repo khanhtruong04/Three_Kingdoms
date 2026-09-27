@@ -9,6 +9,7 @@ export default {
   'common.gold': '{n} gold',
   'lang.title': 'LANGUAGE / NGÔN NGỮ',
   'touch.rotate': 'Rotate your phone to landscape to play',
+  'touch.neutral': 'Neutral',
 
   // ---- title screen (index.html #menu)
   'title.sub': '一杆長槍，獨闖敵軍三百',

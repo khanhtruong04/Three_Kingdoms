@@ -137,7 +137,7 @@ const minimap = createMinimap(minimapEl, game);
 // core/device.js; touch.js chỉ tồn tại — hiện/ẩn theo scene ở sceneManager bên dưới, giống #army-hud/#minimap.
 applyTouchClass();
 const touchEl = document.getElementById('touch');
-const touchControls = createTouchControls(touchEl, input, () => shopCtx());   // shopCtx khai báo dưới — hàm bọc để tránh vấn đề thứ tự khai báo, chỉ thật sự gọi lúc chạy (sau khi shopCtx đã có)
+const touchControls = createTouchControls(touchEl, input, () => shopCtx(), () => touchMenu());   // shopCtx/touchMenu khai báo phía dưới — bọc trong hàm để không phụ thuộc thứ tự khai báo (chỉ gọi thật lúc chạy)
 // T8.3: chỉ chơi màn ngang — lớp phủ CSS (#rotate-overlay) tự hiện khi <body class="touch portrait">; JS chỉ có
 // việc theo dõi hướng máy thật (không đụng sim/pause — trận vẫn chạy dưới lớp phủ, giống Esc không dừng trận nhiều
 // người: người này xoay máy không được làm phòng khựng lại).
@@ -430,6 +430,13 @@ function setPause(on) {
   menuUI.setPaused(on, { demoEnd: mode === 'sandbox', canLeave: true, multi: isMulti() });
   resetQuitConfirm();
   if (on) { if (shopEl) shopEl.hidden = true; input.sample(); }
+}
+
+/** Nút "⋯" trên HUD cảm ứng (T8.14) — thay phím Esc trên điện thoại: mở menu tạm dừng trong trận 1 người,
+ *  hoặc đóng lại nếu đang mở. Trận nhiều người KHÔNG dừng sim (giống Esc) nên chỉ bật/tắt bảng menu. */
+function touchMenu() {
+  if (sceneManager.current !== SCENE.MATCH) return;
+  setPause(!matchPaused);
 }
 
 let booted = false;        // start() đầu tiên chạy ở boot (dưới cùng file này); các lần sau vào lại 'title' mới reset

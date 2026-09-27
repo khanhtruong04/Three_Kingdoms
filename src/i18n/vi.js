@@ -10,6 +10,7 @@ export default {
   'common.gold': '{n} đồng',
   'lang.title': 'NGÔN NGỮ / LANGUAGE',
   'touch.rotate': 'Xoay ngang điện thoại để chơi',
+  'touch.neutral': 'Trung lập',
 
   // ---- màn hình chính (index.html #menu)
   'title.sub': '一杆長槍，獨闖敵軍三百',
