@@ -3,7 +3,7 @@
 import { MSG } from './protocol.js';
 
 /** Đặt URL server đã deploy ở đây (T4.9), hoặc dùng ?server=wss://... trên URL. Để trống → chỉ chạy được khi có ?server= hoặc chạy cục bộ. */
-export const DEFAULT_SERVER_URL = '';
+export const DEFAULT_SERVER_URL = 'wss://three-kingdoms-rooms.onrender.com';   // T4.9: deploy trên Render, 2026-09
 
 /** ?server= > máy cục bộ (localhost:8787) > hằng số DEFAULT_SERVER_URL. Trả '' nếu chưa cấu hình. */
 export function serverUrl(loc = globalThis.location) {
