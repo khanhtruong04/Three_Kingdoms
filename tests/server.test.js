@@ -137,3 +137,42 @@ test('T4.2-T4.5: tạo phòng, vào phòng, Ready, Bắt Đầu, chọn phe/tư�
     c2.ws.close(); c3.ws.close();
   } finally { await srv.close(); }
 });
+
+test('Giai đoạn 4 mở rộng: mic (micState) và bắt tay thoại (voiceSignal) trong phòng', async () => {
+  const srv = await createServer({ port: 0, accountsFile: null }).start();
+  try {
+    const a = await connect(srv.port), b = await connect(srv.port);
+    const wa = await a.wait((m) => m.t === MSG.welcome), wb = await b.wait((m) => m.t === MSG.welcome);
+    a.send({ t: MSG.register, name: 'Alice', password: '12345' }); await a.wait((m) => m.t === MSG.auth && m.ok);
+    b.send({ t: MSG.register, name: 'Bob', password: '12345' }); await b.wait((m) => m.t === MSG.auth && m.ok);
+
+    a.send({ t: MSG.create });
+    const code = (await a.wait((m) => m.t === MSG.room && m.room)).room.code;
+    b.send({ t: MSG.join, code });
+    await b.wait((m) => m.t === MSG.room && m.room?.members.length === 2);
+
+    // Mới vào phòng: chưa ai bật mic.
+    const r0 = (await a.wait((m) => m.t === MSG.room && m.room?.members.length === 2)).room;
+    assert.deepEqual(r0.members.map((x) => x.mic), [false, false]);
+
+    // A bật mic → cả A lẫn B đều thấy đúng qua MSG.room (micState → broadcastRoom, giống `ready`).
+    a.send({ t: MSG.micState, on: true });
+    const rb = (await b.wait((m) => m.t === MSG.room && m.room?.members.find((x) => x.id === wa.id)?.mic === true)).room;
+    assert.equal(rb.members.find((x) => x.id === wb.id).mic, false, 'B chưa bật mic thì vẫn false');
+
+    // Bắt tay WebRTC: A gửi cho ĐÚNG B, nội dung chuyển nguyên vẹn, server gắn thêm `from`; B không thấy gói gửi cho người khác.
+    a.send({ t: MSG.voiceSignal, to: wb.id, data: { sdp: { type: 'offer', sdp: 'v=0...' } } });
+    const sig = await b.wait((m) => m.t === MSG.voiceSignal);
+    assert.equal(sig.from, wa.id);
+    assert.deepEqual(sig.data, { sdp: { type: 'offer', sdp: 'v=0...' } });
+    assert.equal(a.msgs.some((m) => m.t === MSG.voiceSignal), false, 'A không tự nhận lại gói mình gửi');
+
+    // Gửi cho người không ở trong phòng (id bịa) → lặng lẽ bỏ qua, không lỗi, không ai nhận được gì thêm.
+    const before = b.msgs.length;
+    a.send({ t: MSG.voiceSignal, to: 'khong-ton-tai', data: { candidate: {} } });
+    await new Promise((r) => setTimeout(r, 150));
+    assert.equal(b.msgs.length, before);
+
+    a.ws.close(); b.ws.close();
+  } finally { await srv.close(); }
+});

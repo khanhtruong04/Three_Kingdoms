@@ -15,6 +15,10 @@ export const MSG = {
   register: 'register', login: 'login',   // tài khoản (server/accounts.js) — tên hiển thị duy nhất, trước cả create/join
   create: 'create', join: 'join', leave: 'leave', ready: 'ready', start: 'start',
   pickFaction: 'pickFaction', pickGeneral: 'pickGeneral', rejoin: 'rejoin',
+  micState: 'micState',       // client → server: bật/tắt mic của mình (server ghi vào room.members[].mic, phát lại MSG.room)
+  voiceSignal: 'voiceSignal', // client → server → ĐÚNG 1 client khác trong cùng phòng: tín hiệu WebRTC (SDP/ICE) — server
+                               // không đọc/hiểu nội dung, chỉ chuyển tiếp theo `to` (giống buyResult); âm thanh thật đi
+                               // thẳng trình duyệt-tới-trình duyệt (P2P), không qua server (net/voice.js).
   // client → host (qua server)
   input: 'input', order: 'order', buy: 'buy', upgrade: 'upgrade',
   // host → clients (qua server)

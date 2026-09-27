@@ -47,6 +47,8 @@ import { FACTION_LIST as ALL_FACTIONS } from './data/factions.js';
 import { getGeneralsByFaction } from './data/generals.js';
 import { createHost } from './net/host.js';
 import { createClientSync } from './net/sync.js';
+import { createVoice } from './net/voice.js';
+import { createVoiceUI } from './ui/voice.js';
 import { createNetClient, serverUrl } from './net/client.js';
 import { MSG } from './net/protocol.js';
 import { spawnPointFor } from './config/map.js';
@@ -440,6 +442,19 @@ let room = null;           // trạng thái phòng server gửi (view)
 let account = null;        // T8 (mục 16): tên tài khoản đã đăng nhập trong phiên WS hiện tại (null = chưa đăng nhập)
 let netUp = false;
 
+// ---- mic + âm lượng riêng từng người (Giai đoạn 4 mở rộng) — sống suốt từ lúc vào phòng tới hết trận, không theo
+// scene (phòng chờ/pick/trận đều dùng chung 1 phòng). `send` đọc `net` MỖI LẦN GỌI (không chụp giá trị lúc tạo) nên
+// vẫn đúng dù `net` được gán lại sau khi module này khởi tạo.
+const voiceEl = document.getElementById('voice');
+const voice = createVoice((m) => net?.send(m));
+let micDenied = false;
+voice.onError(() => { /* lỗi kết nối thoại với 1 người — không làm gì thêm, người đó chỉ đơn giản không nghe được nhau */ });
+const voiceUI = createVoiceUI(voiceEl, {
+  toggleMic: async () => { const r = await voice.setMic(!voice.micOn); micDenied = !r.ok; refreshVoiceUI(); },
+  setVolume: (id, v) => voice.setVolume(id, v),
+});
+function refreshVoiceUI() { voiceUI.update({ room, myId: net?.id, micOn: voice.micOn, micDenied }); }
+
 const resultUI = createResultUI(resultEl, () => { if (room && mode !== 'sandbox' && mode !== 'legacy') sceneManager.goto(SCENE.LOBBY); else sceneManager.goto(SCENE.TITLE); });   // T3.6
 
 function ensureNet() {
@@ -456,7 +471,7 @@ function ensureNet() {
   }, { rejoinable: () => isMulti() && sceneManager.current === SCENE.MATCH });
   net.connect();
 }
-function closeNet() { net?.close(); net = null; room = null; account = null; netUp = false; }
+function closeNet() { net?.close(); net = null; room = null; account = null; netUp = false; voice.dispose(); refreshVoiceUI(); }
 
 function onNetMessage(m) {
   switch (m.t) {
@@ -464,6 +479,10 @@ function onNetMessage(m) {
       room = m.room;
       if (sceneManager.current === SCENE.LOBBY) renderLobby();
       else if (room && room.state === 'lobby' && (sceneManager.current === SCENE.PICK)) sceneManager.goto(SCENE.LOBBY);   // chọn phe bị hủy
+      // Giai đoạn 4 mở rộng: mic sống suốt phòng chờ → trận, không theo scene — cập nhật mỗi khi danh sách phòng đổi
+      // (người vào/rời) và mở/đóng kết nối WebRTC tương ứng.
+      voice.syncMembers(room ? room.members.map((x) => x.id) : [], net?.id);
+      refreshVoiceUI();
       break;
     case MSG.pick:
       if (sceneManager.current !== SCENE.PICK) sceneManager.goto(SCENE.PICK);
@@ -486,6 +505,7 @@ function onNetMessage(m) {
         pendingResult = withNames(sync.match.snapshotResult('host_left'));
       } else if (sceneManager.current !== SCENE.RESULT) { room = null; sceneManager.goto(SCENE.LOBBY); lobbyUI.setError('host_left'); }
       break;
+    case MSG.voiceSignal: voice.handleSignal(m.from, m.data); break;   // bắt tay WebRTC — âm thanh thật đi thẳng P2P
     case MSG.event: sync?.handleMessage(m); break;
     case MSG.end: if (mode === 'client') pendingResult = withNames(m.result); break;
     case MSG.buyResult: shopUI.result(m, m.id); break;

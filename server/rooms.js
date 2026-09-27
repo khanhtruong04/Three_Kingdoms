@@ -26,7 +26,7 @@ export function createRoomManager({ rng = Math.random, maxPlayers = MAX_PLAYERS,
 
   const memberOf = (room, id) => room.members.find((m) => m.id === id);
   const addMember = (room, id, name, now) => {
-    const m = { id, name: cleanName(name, `Player ${room.members.length + 1}`), ready: false, joinedAt: ++joinSeq, connected: true, droppedAt: 0 };
+    const m = { id, name: cleanName(name, `Player ${room.members.length + 1}`), ready: false, joinedAt: ++joinSeq, connected: true, droppedAt: 0, mic: false };
     room.members.push(m);
     room.emptySince = 0;
     roomOfClient.set(id, room.code);
@@ -117,7 +117,7 @@ export function createRoomManager({ rng = Math.random, maxPlayers = MAX_PLAYERS,
     view(room) {
       return {
         code: room.code, state: room.state, hostId: room.hostId,
-        members: room.members.map((m) => ({ id: m.id, name: m.name, ready: m.id === room.hostId ? true : m.ready, connected: m.connected, slot: m.slot ?? null })),
+        members: room.members.map((m) => ({ id: m.id, name: m.name, ready: m.id === room.hostId ? true : m.ready, connected: m.connected, slot: m.slot ?? null, mic: !!m.mic })),
       };
     },
   };

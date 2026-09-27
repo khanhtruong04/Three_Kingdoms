@@ -36,7 +36,7 @@
   #touch .tc-move.on { background: rgba(20,14,10,.6); }
   #touch .tc-move-stick { position: absolute; left: 50%; top: 50%; width: 4.6rem; height: 4.6rem; margin: -2.3rem;
     border-radius: 50%; background: rgba(242,193,78,.55); box-shadow: 0 0 0 .12rem rgba(244,234,216,.55); pointer-events: none; }
-  #touch .tc-cam { position: absolute; right: 0; top: 0; bottom: 11rem; left: 40%; }   /* vuốt xoay camera — dưới các nút (stopPropagation) */
+  #touch .tc-cam { position: absolute; right: 0; top: 7rem; bottom: 11rem; left: 40%; }   /* vuốt xoay camera — dưới các nút (stopPropagation); chừa dải trên cùng cho bảng mic #voice (cùng tầng z-index, đứng sau trong DOM nên che mất nút mic nếu phủ lên) */
   #touch .tc-attack { position: absolute; right: max(2.4rem, env(safe-area-inset-right)); bottom: max(2.2rem, env(safe-area-inset-bottom));
     width: 9.5rem; height: 9.5rem; border-radius: 50%; border: .15rem solid rgba(244,234,216,.5); background: rgba(179,38,30,.75);
     color: #f8e6d2; font: 700 1.7rem var(--kai); letter-spacing: .1em; }
@@ -316,6 +316,24 @@
     font: 700 1.3rem/1 "TKSans", "Avenir Next", "Helvetica Neue", sans-serif; letter-spacing: .05em; }
   #pause-btn:hover { background: rgba(60,44,32,.9); border-color: #f2c14e; }
   #pause-btn[hidden] { display: none; }
+  /* Bảng mic + âm lượng riêng từng người (net/voice.js, ui/voice.js) — hiện ở cả phòng chờ lẫn trong trận, dưới nút
+     tạm dừng. z-index 4: phải CAO HƠN #lobby/#pick/#result (3) và #menu tạm dừng (2) — phòng chờ/chọn phe chính là
+     lúc cần bấm mic nhiều nhất, để thấp hơn thì nút mic bị #lobby che mất, không bấm được (đã tự kiểm bằng Playwright:
+     click bị chặn "div#lobby intercepts pointer events" lúc còn z-index 1). Chỉ #rotate-overlay (20, T8) còn cao hơn. */
+  #voice { position: fixed; top: 4.4rem; left: 50%; transform: translateX(-50%); z-index: 4; display: flex; align-items: center;
+    gap: .6rem; max-width: 30rem; padding: .5rem .8rem; background: rgba(12,8,6,.72); border: .1rem solid rgba(214,184,130,.5);
+    border-radius: .4rem; color: #f4ead8; font: 600 1.05rem/1.2 "TKSans", "Avenir Next", "Helvetica Neue", sans-serif; }
+  #voice[hidden] { display: none; }
+  #voice .vc-mic { flex: 0 0 auto; width: 2.6rem; height: 2.6rem; border: 0; border-radius: 50%; cursor: pointer;
+    background: rgba(90,90,90,.7); color: #fff; font-size: 1.2rem; line-height: 1; }
+  #voice .vc-mic.on { background: rgba(63,184,176,.8); }
+  #voice .vc-mic.denied { background: rgba(179,38,30,.7); }
+  #voice .vc-list { display: flex; flex-wrap: wrap; gap: .3rem .9rem; }
+  #voice .vc-row { display: flex; align-items: center; gap: .4rem; font-size: .95rem; opacity: .95; }
+  #voice .vc-name { max-width: 8rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #voice .vc-ic { opacity: .3; font-size: .95rem; }
+  #voice .vc-ic.on { opacity: 1; }
+  #voice input[type=range] { width: 5.5rem; accent-color: #f2c14e; }
   #army-hud .ah-potion { display: flex; gap: .8rem; align-items: baseline; margin: -.2rem 0 .6rem; font-size: 1.1rem; color: #b9f2c4; }
   #army-hud .ah-potion em { font-style: normal; color: #ffb59a; }
   #hud .h-player .mu { display: none; }   /* kỹ năng Musou đã tắt: ẩn thanh Musou */
@@ -468,6 +486,8 @@
 </div>
 <!-- T3.6: màn kết quả trận đấu -->
 <button id="pause-btn" type="button" hidden><span>⏸</span> <b data-i18n="hud.pause">Pause</b></button>
+<!-- Giai đoạn 4 mở rộng: mic + âm lượng riêng từng người trong phòng (src/ui/voice.js) — hiện ở cả phòng chờ lẫn trong trận. -->
+<div id="voice" hidden></div>
 <div id="result" hidden></div>
 <!-- T4.3/T4.4: chọn chế độ + phòng chờ, chọn phe & tướng (src/ui/lobby.js, src/ui/pick.js) -->
 <div id="lobby" hidden></div>

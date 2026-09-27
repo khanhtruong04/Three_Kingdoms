@@ -87,6 +87,12 @@ export default {
   'auth.register': 'Tạo tài khoản',
   'auth.toRegister': 'Chưa có tài khoản? Tạo mới',
   'auth.toLogin': 'Đã có tài khoản? Đăng nhập',
+
+  // ---- thoại trong phòng (mic) — phòng chờ + trong trận (Giai đoạn 4 mở rộng)
+  'voice.micToggle': 'Bật/tắt mic',
+  'voice.micOn': 'Mic đang bật',
+  'voice.micOff': 'Mic đang tắt — bấm để bật',
+  'voice.denied': 'Trình duyệt từ chối quyền dùng micro',
   'err.not_authed': 'Cần đăng nhập trước.',
   'err.name_taken': 'Tên này đã có người dùng.',
   'err.invalid_name': 'Tên phải dài 2–16 kí tự (chữ, số, dấu cách, - _ .).',

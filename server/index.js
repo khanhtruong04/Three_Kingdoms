@@ -98,6 +98,18 @@ export function createServer({ port = Number(process.env.PORT) || 8787, rng = Ma
           rec.accountName = r.name;
           return send(id, { t: MSG.auth, ok: true, name: r.name });
         }
+        case MSG.micState: {   // bật/tắt mic — ghi vào room.members[].mic rồi phát lại danh sách phòng (giống `ready`)
+          const room = rooms.roomOf(id);
+          const m = room && rooms.memberOf(room, id);
+          if (!m) return;
+          m.mic = !!msg.on;
+          return broadcastRoom(room);
+        }
+        case MSG.voiceSignal: {   // chuyển tín hiệu WebRTC tới ĐÚNG 1 người trong cùng phòng — không đọc nội dung `data`
+          const room = rooms.roomOf(id);
+          if (!room || typeof msg.to !== 'string' || !rooms.memberOf(room, msg.to)) return;
+          return send(msg.to, { t: MSG.voiceSignal, from: id, data: msg.data });
+        }
         case MSG.rejoin: {                           // T4.8: vào lại trong 60 s bằng id + token cũ
           const old = clients.get(msg.id);
           const room = old && rooms.roomOf(old.id);

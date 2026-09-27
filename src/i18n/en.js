@@ -86,6 +86,12 @@ export default {
   'auth.register': 'Create account',
   'auth.toRegister': 'No account yet? Create one',
   'auth.toLogin': 'Already have an account? Log in',
+
+  // ---- room voice chat (mic) — lobby + in-match (Giai đoạn 4 extension)
+  'voice.micToggle': 'Toggle mic',
+  'voice.micOn': 'Mic is on',
+  'voice.micOff': 'Mic is off — click to turn on',
+  'voice.denied': 'The browser denied microphone access',
   'err.not_authed': 'You need to log in first.',
   'err.name_taken': 'That name is already taken.',
   'err.invalid_name': 'Name must be 2–16 characters (letters, digits, space, - _ .).',
