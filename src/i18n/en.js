@@ -50,6 +50,15 @@ export default {
   'guide.generals': 'Generals',
   'guide.weapon': 'Weapon',
   'guide.generalsNote': 'Every general is playable; the descriptions and weapons below come from the game\'s general data.',
+  'guide.stats': 'Stats',
+  'guide.stats.unit': 'Unit',
+  'guide.stats.hp': 'HP',
+  'guide.stats.atk': 'Damage',
+  'guide.stats.armor': 'Armor',
+  'guide.stats.speed': 'Attack speed',
+  'guide.stats.speedGeneral': '~2.4 hits/s (normal-attack chain, the 3rd J in a row automatically becomes a heavy attack)',
+  'guide.stats.speed1': '1 hit/s',
+  'guide.stats.speed15': '1.5 hits/s',
 
   // ---- mode select
   'mode.title': 'Select Mode',

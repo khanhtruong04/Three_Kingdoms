@@ -62,6 +62,8 @@ Bấm `1`–`4` đổi lệnh cho **toàn bộ quân của Tướng Quân mình*
 
 **Bảng chỉ số — Tướng Quân & Lính** (nguồn: `src/config/balance.js` `UNIT_STATS`; giáp là tỉ lệ giảm sát thương):
 
+**Đã hiện luôn trong game** — màn "Hướng dẫn chơi" (nút trong menu chính/tạm dừng, `#panel-guide` trong `index.html`) có thêm bảng "Chỉ số" giữa bảng Điều khiển và Danh sách tướng, lấy đúng số ở bảng trên (HP/Sát thương/Giáp/Tốc độ đánh mỗi đơn vị) — không cần đọc file kế hoạch mới biết. Thêm 8 khoá `guide.stats*` vào `i18n/vi.js`/`en.js`.
+
 | Đơn vị | HP | ATK | Giáp | Tốc độ đánh |
 |---|---|---|---|---|
 | **Tướng Quân** | 200 | 10 *(mỗi chiêu N1–N6 gốc 5–30/đòn × 0.5, xem mục 10.3)* | 20% | Chuỗi liên hoàn, không phải hồi chiêu cố định: ~20–38 khung/đòn khi bấm liên tục ≈ **2,4 đòn/giây** trung bình |

@@ -51,6 +51,15 @@ export default {
   'guide.generals': 'Danh sách tướng',
   'guide.weapon': 'Vũ khí',
   'guide.generalsNote': 'Mọi tướng đều chơi được; mô tả và vũ khí ở dưới lấy theo dữ liệu tướng của trò chơi.',
+  'guide.stats': 'Chỉ số',
+  'guide.stats.unit': 'Đơn vị',
+  'guide.stats.hp': 'Máu',
+  'guide.stats.atk': 'Sát thương',
+  'guide.stats.armor': 'Giáp',
+  'guide.stats.speed': 'Tốc độ đánh',
+  'guide.stats.speedGeneral': '~2,4 đòn/giây (chuỗi liên hoàn J, bấm 3 lần liên tiếp thì lần 3 tự đánh mạnh)',
+  'guide.stats.speed1': '1 đòn/giây',
+  'guide.stats.speed15': '1,5 đòn/giây',
 
   // ---- chọn chế độ
   'mode.title': 'Chọn Chế Độ',
