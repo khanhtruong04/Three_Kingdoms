@@ -6,17 +6,20 @@ import { t, onLangChange, applyStatic } from '../i18n/i18n.js';
 export function createVoiceUI(root, actions) {
   root.innerHTML = `
     <button type="button" class="vc-mic" data-i18n-title="voice.micToggle"><span class="ic">🎤</span></button>
+    <button type="button" class="vc-collapse" data-i18n-title="voice.collapseToggle">▾</button>
     <div class="vc-list"></div>
   `;
   applyStatic(root);
   onLangChange(() => applyStatic(root));
   const $ = (s) => root.querySelector(s);
-  const micBtn = $('.vc-mic'), listEl = $('.vc-list');
+  const micBtn = $('.vc-mic'), listEl = $('.vc-list'), collapseBtn = $('.vc-collapse');
   let rows = new Map();   // peerId → { el, slider, mic }
   let collapsed = false;
 
   micBtn.addEventListener('click', () => actions.toggleMic());
-  micBtn.addEventListener('dblclick', () => { collapsed = !collapsed; listEl.hidden = collapsed; });   // gọn bớt khi phòng đông
+  // T8 (lỗi đã báo): bỏ dblclick để thu gọn danh sách — sau khi chặn double-tap-zoom toàn trang (main.js), dblclick
+  // không còn đáng tin cậy trên cảm ứng nữa (chạm nhanh 2 lần bị coi là 1 lần do preventDefault). Dùng nút riêng.
+  collapseBtn.addEventListener('click', () => { collapsed = !collapsed; listEl.hidden = collapsed; collapseBtn.classList.toggle('collapsed', collapsed); });
 
   function ensureRow(id, name) {
     let r = rows.get(id);

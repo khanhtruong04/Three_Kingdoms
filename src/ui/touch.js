@@ -56,19 +56,27 @@ export function createTouchControls(root, input, getShopCtx, onMenu = () => {}) 
       <div class="tc-gold"><em>◉</em><b></b></div>
     </div>
     <div class="tc-flag"><em>⚑</em><b></b><i class="tc-flag-bar"></i></div>
+    <button type="button" class="tc-full" data-i18n-title="touch.fullscreen">⛶</button>
     <button type="button" class="tc-menu" aria-label="menu">⋯</button>
-    <div class="tc-move" data-role="move"><div class="tc-move-stick"></div></div>
+    <div class="tc-move" data-role="move" data-drag="1"><div class="tc-move-stick"></div></div>
     <div class="tc-cam" data-role="cam"></div>
-    <button type="button" class="tc-attack" data-action="attack" data-i18n-title="key.attack">🗡</button>
-    ${ORDER_BTNS.map((o) => `<button type="button" class="tc-ord ${o.cls}" data-action="${o.action}" data-i18n-title="${o.key}">${o.ic}</button>`).join('')}
-    <button type="button" class="tc-heal" data-action="heal" data-i18n-title="key.heal">♥<b class="tc-heal-n"></b></button>
+    <button type="button" class="tc-attack" data-action="attack" data-drag="2" data-i18n-title="key.attack">🗡</button>
+    ${ORDER_BTNS.map((o) => `<button type="button" class="tc-ord ${o.cls}" data-action="${o.action}" data-drag="${o.n}" data-i18n-title="${o.key}">${o.ic}</button>`).join('')}
+    <button type="button" class="tc-heal" data-action="heal" data-drag="7" data-i18n-title="key.heal">♥<b class="tc-heal-n"></b></button>
     <div class="tc-shop">
-      ${BUY_BTNS.map((b) => `<button type="button" class="tc-buy" data-buy="${b.id}" data-i18n-title="${b.key}"><em>${b.ic}</em><i class="tc-buy-p"></i></button>`).join('')}
+      ${BUY_BTNS.map((b) => `<button type="button" class="tc-buy" data-buy="${b.id}" data-drag="${b.n}" data-i18n-title="${b.key}"><em>${b.ic}</em><i class="tc-buy-p"></i></button>`).join('')}
       <button type="button" class="tc-buy tc-up" data-up="1" data-i18n-title="shop.upgrades"><em>↑</em><i>lv</i></button>
     </div>
     <div class="tc-upgrade" hidden>
       ${UPGRADE_ITEMS.map((u) => `<div class="tc-up-row" data-unit="${u.key}" data-upkey="${u.upKey}"><span data-i18n="${u.label}"></span><b class="tc-up-p"></b><button type="button"></button></div>`).join('')}
       <button type="button" class="tc-up-close" data-i18n="common.back"></button>
+    </div>
+    <div class="tc-edit-bar" hidden>
+      <span class="tc-edit-label" data-i18n="settings.editHint"></span>
+      <button type="button" class="tc-edit-minus">－</button>
+      <button type="button" class="tc-edit-plus">＋</button>
+      <button type="button" class="tc-edit-reset" data-i18n="settings.resetLayout"></button>
+      <button type="button" class="tc-edit-done" data-i18n="settings.done"></button>
     </div>
   `;
   applyStatic(root);
@@ -86,6 +94,18 @@ export function createTouchControls(root, input, getShopCtx, onMenu = () => {}) 
     btn.addEventListener('pointerleave', up);   // ngón trượt ra khỏi nút giữa chừng = nhả (tránh kẹt "đang giữ")
   });
   root.querySelector('.tc-menu').addEventListener('click', (e) => { e.stopPropagation(); onMenu(); });
+
+  // ---- T8.3 (yêu cầu thêm): nút toàn màn hình — ẩn thanh địa chỉ/giờ/pin của trình duyệt để đỡ vướng khi chơi.
+  // Fullscreen API cần cử chỉ người dùng (bấm nút này) mới xin được, không tự bật lúc vào trận. iOS Safari KHÔNG hỗ
+  // trợ requestFullscreen() cho cả trang (chỉ cho <video>) — nút vẫn hiện nhưng bấm không có tác dụng ở đó, không
+  // báo lỗi gì (catch nuốt lỗi), người dùng iOS chỉ còn cách tự vuốt ẩn thanh Safari theo cách của hệ điều hành.
+  const fullBtn = root.querySelector('.tc-full');
+  fullBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (!document.fullscreenElement) document.documentElement.requestFullscreen?.().catch(() => {});
+    else document.exitFullscreen?.().catch(() => {});
+  });
+  document.addEventListener('fullscreenchange', () => fullBtn.classList.toggle('on', !!document.fullscreenElement));
 
   // ---- T8.5: cần di chuyển ảo — nổi ở chỗ vừa chạm (không cố định 1 vòng tròn), theo dõi đúng pointerId để đi và
   // đánh (2 ngón) không giẫm lên nhau. Bán kính tối đa 7.5rem (khớp vòng tròn 16rem trong CSS), vùng chết 15%.
@@ -230,5 +250,93 @@ export function createTouchControls(root, input, getShopCtx, onMenu = () => {}) 
     if (!v) upgradeEl.hidden = true;
   }
 
-  return { update, showArmyButtons };
+  // ---- T8 (yêu cầu thêm): chỉnh vị trí + kích thước nút 1–13 (kéo thả + nút to/nhỏ), lưu vào máy (localStorage,
+  // riêng trình duyệt này — không đồng bộ giữa các máy). Nút 14–18 (nâng cấp, cờ trung tâm, avatar, tiền, đồng hồ)
+  // KHÔNG cho chỉnh theo đúng yêu cầu — không gắn `data-drag` cho chúng nên bị bỏ qua hoàn toàn ở đây.
+  // Nút 8 (minimap) nằm NGOÀI #touch (phần tử `#minimap` riêng, do ui/minimap.js vẽ) nên phải với ra ngoài root —
+  // chấp nhận khớp nối lỏng lẻo này để đủ đúng yêu cầu "chỉnh được cả nút 1–13".
+  const LAYOUT_KEY = 'tk-touch-layout';
+  const minimapEl = document.getElementById('minimap');
+  if (minimapEl) minimapEl.dataset.drag = '8';
+  let layout = {};
+  try { layout = JSON.parse(localStorage.getItem(LAYOUT_KEY) || '{}') || {}; } catch { /* riêng tư/hỏng dữ liệu — dùng mặc định */ }
+
+  function applyLayout() {
+    root.querySelectorAll('[data-drag]').forEach((el) => {
+      const s = layout[el.dataset.drag];
+      el.style.transform = s ? `translate(${s.dx || 0}px, ${s.dy || 0}px) scale(${s.scale ?? 1})` : '';
+    });
+    if (minimapEl) {
+      const s = layout['8'];
+      minimapEl.style.transform = s ? `translate(${s.dx || 0}px, ${s.dy || 0}px) scale(${s.scale ?? 1})` : '';
+    }
+  }
+  function saveLayout() { try { localStorage.setItem(LAYOUT_KEY, JSON.stringify(layout)); } catch { /* riêng tư/đầy bộ nhớ — bỏ qua, vẫn dùng được trong phiên này */ } }
+  applyLayout();
+
+  let editMode = false, selectedKey = null, dragging = null;
+  const editBar = root.querySelector('.tc-edit-bar'), editLabel = root.querySelector('.tc-edit-label');
+
+  function selectKey(key) {
+    if (selectedKey) document.querySelector(`[data-drag="${selectedKey}"]`)?.classList.remove('tc-edit-selected');
+    selectedKey = key;
+    if (key) {
+      document.querySelector(`[data-drag="${key}"]`)?.classList.add('tc-edit-selected');
+      editLabel.textContent = t('settings.editSelected', { n: key });
+    } else editLabel.textContent = t('settings.editHint');
+  }
+
+  // Bắt ở GIAI ĐOẠN BẮT (capture) trên `document` (không phải `root`) vì nút 8/minimap nằm ngoài #touch. Chỉ chạy
+  // khi đang chỉnh sửa; `stopPropagation()` ở đây chặn luôn các handler chơi game (đánh/lệnh/mua) gắn ở giai đoạn
+  // nổi bọt trên cùng phần tử, nên kéo nút không vô tình bấm phải hành động của nó.
+  function dragStart(e) {
+    if (!editMode) return;
+    const el = e.target.closest('[data-drag]');
+    if (!el) return;
+    e.preventDefault(); e.stopPropagation();
+    const key = el.dataset.drag;
+    selectKey(key);
+    el.setPointerCapture?.(e.pointerId);
+    const cur = layout[key] || { dx: 0, dy: 0, scale: 1 };
+    dragging = { key, pointerId: e.pointerId, startX: e.clientX, startY: e.clientY, baseDx: cur.dx || 0, baseDy: cur.dy || 0 };
+  }
+  function dragMove(e) {
+    if (!dragging || e.pointerId !== dragging.pointerId) return;
+    const cur = layout[dragging.key] || { scale: 1 };
+    layout[dragging.key] = { dx: dragging.baseDx + (e.clientX - dragging.startX), dy: dragging.baseDy + (e.clientY - dragging.startY), scale: cur.scale ?? 1 };
+    applyLayout();
+  }
+  function dragEnd(e) {
+    if (!dragging || e.pointerId !== dragging.pointerId) return;
+    dragging = null; saveLayout();
+  }
+  document.addEventListener('pointerdown', dragStart, true);
+  document.addEventListener('pointermove', dragMove);
+  document.addEventListener('pointerup', dragEnd);
+  document.addEventListener('pointercancel', dragEnd);
+
+  function adjustScale(delta) {
+    if (!selectedKey) return;
+    const cur = layout[selectedKey] || { dx: 0, dy: 0, scale: 1 };
+    cur.scale = Math.max(0.6, Math.min(1.8, Math.round(((cur.scale ?? 1) + delta) * 20) / 20));
+    layout[selectedKey] = cur;
+    applyLayout(); saveLayout();
+  }
+  editBar.querySelector('.tc-edit-minus').addEventListener('click', () => adjustScale(-0.1));
+  editBar.querySelector('.tc-edit-plus').addEventListener('click', () => adjustScale(0.1));
+  function resetLayout() { layout = {}; saveLayout(); applyLayout(); selectKey(null); }
+  editBar.querySelector('.tc-edit-reset').addEventListener('click', resetLayout);
+  editBar.querySelector('.tc-edit-done').addEventListener('click', () => setEditMode(false));
+
+  /** main.js gọi khi bấm "Chỉnh vị trí & kích thước nút" trong Cài đặt (chỉ có tác dụng khi đang trong trận, vì cần
+   *  thấy nút thật để kéo — main.js tự kiểm điều kiện đó trước khi gọi). */
+  function setEditMode(v) {
+    editMode = v;
+    root.classList.toggle('tc-editing', v);
+    minimapEl?.classList.toggle('tc-drag-outline', v);   // minimap nằm ngoài #touch nên không ăn theo .tc-editing của root
+    editBar.hidden = !v;
+    if (!v) { selectKey(null); dragging = null; }
+  }
+
+  return { update, showArmyButtons, setEditMode, resetLayout, get editMode() { return editMode; } };
 }

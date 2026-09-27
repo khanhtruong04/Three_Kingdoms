@@ -10,6 +10,7 @@ export default {
   'lang.title': 'LANGUAGE / NGÔN NGỮ',
   'touch.rotate': 'Rotate your phone to landscape to play',
   'touch.neutral': 'Neutral',
+  'touch.fullscreen': 'Fullscreen — hide the phone status bar',
 
   // ---- title screen (index.html #menu)
   'title.sub': '一杆長槍，獨闖敵軍三百',
@@ -102,6 +103,17 @@ export default {
   'voice.micOn': 'Mic is on',
   'voice.micOff': 'Mic is off — click to turn on',
   'voice.denied': 'The browser denied microphone access',
+  'voice.collapseToggle': 'Collapse/expand the list',
+
+  // ---- Settings (T8 extension) — touch devices only
+  'menu.settings': 'Settings',
+  'settings.hint': 'Only applies to the touch buttons on phones/tablets — no effect on a computer.',
+  'settings.editLayout': 'Move & resize the buttons',
+  'settings.editNeedMatch': 'Start a match (Practice alone or Play vs computer) first so you can see the real buttons to adjust them.',
+  'settings.resetLayout': 'Reset to default',
+  'settings.editHint': 'Drag a button to move it; tap it to select, then use ＋/－ to resize.',
+  'settings.editSelected': 'Selected button {n}',
+  'settings.done': 'Done',
   'err.not_authed': 'You need to log in first.',
   'err.name_taken': 'That name is already taken.',
   'err.invalid_name': 'Name must be 2–16 characters (letters, digits, space, - _ .).',

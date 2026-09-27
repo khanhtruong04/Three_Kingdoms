@@ -60,6 +60,9 @@
   /* nút ⋯ (T8.14) — thay phím Esc trên điện thoại; góc trên phải, ngay trên minimap */
   #touch .tc-menu { right: max(1.2rem, env(safe-area-inset-right)); top: max(.9rem, env(safe-area-inset-top));
     width: 7rem; height: 5rem; border: 0; border-radius: .7rem; background: rgba(10,7,6,.72); color: #f4ead8; font: 700 2.8rem/1 var(--sans); }
+  #touch .tc-full { right: calc(8.7rem + max(1.2rem, env(safe-area-inset-right))); top: max(.9rem, env(safe-area-inset-top));
+    width: 5rem; height: 5rem; border: 0; border-radius: .7rem; background: rgba(10,7,6,.72); color: #f4ead8; font: 700 2.2rem/1 var(--sans); touch-action: none; }
+  #touch .tc-full.on { background: rgba(63,184,176,.5); }
 
   /* 1 cần di chuyển (dưới trái) — cần "nổi" ngay chỗ vừa chạm, không cố định giữa vòng tròn */
   #touch .tc-move { left: max(2rem, env(safe-area-inset-left)); bottom: max(2rem, env(safe-area-inset-bottom));
@@ -112,6 +115,22 @@
   #touch .tc-up-row button:disabled { background: rgba(120,110,95,.5); color: #ccc; }
   #touch .tc-up-close { align-self: center; margin-top: .3rem; padding: .5rem 2rem; border-radius: .4rem; border: .12rem solid rgba(244,234,216,.45);
     background: transparent; color: #f4ead8; font: 600 1.4rem/1.2 var(--sans); }
+
+  /* Chế độ chỉnh vị trí/kích thước nút (Cài đặt → "Chỉnh vị trí & kích thước nút"): các nút 1–13 (đánh dấu
+     data-drag, xem ui/touch.js) hiện viền đứt để biết kéo được; nút đang chọn (để bấm +/－ đổi cỡ) viền vàng liền.
+     Thanh công cụ nổi giữa dưới màn — z-index cao hơn mọi nút khác trong #touch vì xếp SAU CÙNG trong HTML. */
+  body.touch #touch.tc-editing [data-drag], body.touch #minimap.tc-drag-outline { outline: .18rem dashed rgba(242,193,78,.85); outline-offset: .15rem; cursor: grab; }
+  body.touch [data-drag].tc-edit-selected { outline: .22rem solid #f2c14e; outline-offset: .15rem; }
+  #touch .tc-edit-bar { left: 50%; bottom: max(1rem, env(safe-area-inset-bottom)); transform: translateX(-50%);
+    display: flex; align-items: center; gap: .6rem; padding: .6rem 1rem; border-radius: .6rem; background: rgba(10,7,6,.92);
+    border: .12rem solid rgba(214,184,130,.55); font: 600 1.3rem/1.2 var(--sans); color: #f4ead8; white-space: nowrap; }
+  #touch .tc-edit-bar[hidden] { display: none; }
+  #touch .tc-edit-label { min-width: 9rem; }
+  #touch .tc-edit-minus, #touch .tc-edit-plus { width: 3.2rem; height: 3.2rem; border-radius: 50%; border: 0;
+    background: rgba(255,255,255,.15); color: #f4ead8; font: 700 1.6rem/1 var(--sans); }
+  #touch .tc-edit-reset, #touch .tc-edit-done { padding: .5rem 1.1rem; border-radius: .4rem; border: 0; font: 700 1.2rem/1.2 var(--sans); }
+  #touch .tc-edit-reset { background: rgba(179,38,30,.7); color: #fff; }
+  #touch .tc-edit-done { background: rgba(242,193,78,.9); color: #2a1c10; }
 
   /* Trên cảm ứng: bảng chữ #army-hud và nút ⏸ được thay bằng thanh thông tin + nút ⋯ ở trên; minimap (8) về góc phải. */
   body.touch #army-hud, body.touch #pause-btn { display: none; }
@@ -391,6 +410,9 @@
     background: rgba(90,90,90,.7); color: #fff; font-size: 1.2rem; line-height: 1; }
   #voice .vc-mic.on { background: rgba(63,184,176,.8); }
   #voice .vc-mic.denied { background: rgba(179,38,30,.7); }
+  #voice .vc-collapse { flex: 0 0 auto; width: 1.8rem; height: 1.8rem; border: 0; border-radius: 50%; cursor: pointer;
+    background: rgba(255,255,255,.12); color: #f4ead8; font-size: 1rem; line-height: 1; }
+  #voice .vc-collapse.collapsed { transform: rotate(-90deg); }
   #voice .vc-list { display: flex; flex-wrap: wrap; gap: .3rem .9rem; }
   #voice .vc-row { display: flex; align-items: center; gap: .4rem; font-size: .95rem; opacity: .95; }
   #voice .vc-name { max-width: 8rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -559,6 +581,7 @@
     <button id="nav-lang" class="secondary" type="button" data-i18n="menu.language">Language</button>
     <button id="nav-sound" class="secondary" type="button" data-i18n="menu.sound">Sound</button>
     <button id="nav-guide" class="secondary" type="button" data-i18n="menu.guide">How to play</button>
+    <button id="nav-settings" class="secondary" type="button" data-i18n="menu.settings" hidden>Settings</button>
   </nav>
 
   <section class="menu-panel" id="panel-lang" hidden>
@@ -612,6 +635,16 @@
       <div class="hint" data-i18n="guide.generalsNote"></div>
       <div id="guide-generals"></div>
     </div>
+    <button type="button" class="panel-back secondary" data-i18n="common.back">Back</button>
+  </section>
+
+  <!-- Cài đặt (T8 mở rộng) — chỉ hiện trên thiết bị cảm ứng (main.js gắn theo core/device.js isTouch lúc khởi động). -->
+  <section class="menu-panel" id="panel-settings" hidden>
+    <h2 data-i18n="menu.settings">Settings</h2>
+    <div class="hint" data-i18n="settings.hint"></div>
+    <button type="button" id="settings-edit-layout" class="secondary" data-i18n="settings.editLayout"></button>
+    <div class="hint" id="settings-edit-need-match" data-i18n="settings.editNeedMatch" hidden></div>
+    <button type="button" id="settings-reset-layout" class="secondary small" data-i18n="settings.resetLayout"></button>
     <button type="button" class="panel-back secondary" data-i18n="common.back">Back</button>
   </section>
 

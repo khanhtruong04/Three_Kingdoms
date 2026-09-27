@@ -11,6 +11,7 @@ export default {
   'lang.title': 'NGÔN NGỮ / LANGUAGE',
   'touch.rotate': 'Xoay ngang điện thoại để chơi',
   'touch.neutral': 'Trung lập',
+  'touch.fullscreen': 'Toàn màn hình — ẩn thanh trạng thái điện thoại',
 
   // ---- màn hình chính (index.html #menu)
   'title.sub': '一杆長槍，獨闖敵軍三百',
@@ -103,6 +104,17 @@ export default {
   'voice.micOn': 'Mic đang bật',
   'voice.micOff': 'Mic đang tắt — bấm để bật',
   'voice.denied': 'Trình duyệt từ chối quyền dùng micro',
+  'voice.collapseToggle': 'Thu gọn/mở rộng danh sách',
+
+  // ---- Cài đặt (T8 mở rộng) — chỉ hiện trên thiết bị cảm ứng
+  'menu.settings': 'Cài đặt',
+  'settings.hint': 'Chỉ áp dụng cho các nút chạm trên điện thoại/máy tính bảng — không ảnh hưởng máy tính.',
+  'settings.editLayout': 'Chỉnh vị trí & kích thước nút',
+  'settings.editNeedMatch': 'Vào chơi (Thử một mình hoặc Chơi với máy) trước để thấy nút thật rồi chỉnh.',
+  'settings.resetLayout': 'Đặt lại mặc định',
+  'settings.editHint': 'Kéo 1 nút để dời chỗ; chạm để chọn rồi bấm ＋/－ để đổi cỡ.',
+  'settings.editSelected': 'Đang chọn nút {n}',
+  'settings.done': 'Xong',
   'err.not_authed': 'Cần đăng nhập trước.',
   'err.name_taken': 'Tên này đã có người dùng.',
   'err.invalid_name': 'Tên phải dài 2–16 kí tự (chữ, số, dấu cách, - _ .).',

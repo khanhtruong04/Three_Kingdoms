@@ -39,7 +39,7 @@ import { createMatchSession, assignFlags, ARMY_CAPACITY } from './match/session.
 import { t, onLangChange, applyStatic } from './i18n/i18n.js';
 import { createMenuUI } from './ui/menu.js';
 import { sanitizeInput, applyAutoCharge } from './hero/controls.js';
-import { applyTouchClass } from './core/device.js';
+import { applyTouchClass, isTouch } from './core/device.js';
 import { createTouchControls } from './ui/touch.js';
 import { createAI } from './ai/index.js';
 import { DIFFICULTY } from './config/ai.js';
@@ -145,6 +145,37 @@ const updateOrientation = () => { try { document.body.classList.toggle('portrait
 updateOrientation();
 addEventListener('resize', updateOrientation);
 addEventListener('orientationchange', updateOrientation);
+
+// Cài đặt (yêu cầu thêm) — chỉ có ý nghĩa trên cảm ứng nên nút "Cài đặt" trong menu chính chỉ hiện khi isTouch.
+// "Chỉnh vị trí & kích thước nút" cần THẤY nút thật để kéo nên chỉ bật được khi đang ở scene MATCH (trong trận) —
+// tham chiếu sceneManager/menuUI/SCENE bên trong callback (khai báo ở dưới file này) chứ không phải lúc chạy dòng
+// này, nên không vướng thứ tự khai báo (giống cách gọi shopCtx()/touchMenu() ở trên).
+if (isTouch) document.getElementById('nav-settings').hidden = false;
+const editLayoutBtn = document.getElementById('settings-edit-layout'), editNeedMatchEl = document.getElementById('settings-edit-need-match');
+editLayoutBtn.addEventListener('click', () => {
+  editNeedMatchEl.hidden = true;
+  if (sceneManager.current !== SCENE.MATCH) { editNeedMatchEl.hidden = false; return; }
+  setPause(false);   // đóng menu để lộ #touch ra (trận 1 người: setPause(false) = tiếp tục chạy; trận nhiều người vốn không dừng)
+  touchControls.setEditMode(true);
+});
+document.getElementById('settings-reset-layout').addEventListener('click', () => touchControls.resetLayout());
+
+// T8.2 (lỗi đã báo): `user-scalable=no`/`maximum-scale=1` trong thẻ viewport KHÔNG chặn được double-tap-zoom trên
+// nhiều bản Chrome/Android đời mới (trình duyệt cố tình lờ đi vì lý do trợ năng) — chạm 2 lần liên tiếp vẫn phóng to
+// trang, che mất nút chơi. Chặn thêm ở JS: preventDefault lần chạm thứ 2 nếu cách lần trước dưới 350 ms (đúng
+// ngưỡng double-tap chuẩn của trình duyệt). An toàn với lối chơi: các nút cảm ứng (ui/touch.js) đọc trạng thái qua
+// pointerdown/pointerup + input.touch.setHeld() ngay khi chạm xuống, không chờ sự kiện click/touchend của trình
+// duyệt nên bị chặn default ở đây không ảnh hưởng gì (bấm liên tiếp 3 lần để tự đánh mạnh vẫn hoạt động bình
+// thường). Cũng chặn cử chỉ chụm 2 ngón (pinch-zoom, Safari cũ dùng gesturestart/change/end).
+let lastTouchEnd = 0;
+addEventListener("touchend", (e) => {
+  const now = Date.now();
+  if (now - lastTouchEnd <= 350) e.preventDefault();
+  lastTouchEnd = now;
+}, { passive: false });
+addEventListener("gesturestart", (e) => e.preventDefault());
+addEventListener("gesturechange", (e) => e.preventDefault());
+
 
 // ---- phiên trận đang chạy
 let session = null;        // match/session.js (sandbox + host)

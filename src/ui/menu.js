@@ -15,7 +15,7 @@ const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&l
 export function createMenuUI(root) {
   const $ = (s) => root.querySelector(s);
   const nav = $('#menu-nav'), go = $('#go'), hint = $('#menu-hint');
-  const panels = { lang: $('#panel-lang'), sound: $('#panel-sound'), guide: $('#panel-guide') };
+  const panels = { lang: $('#panel-lang'), sound: $('#panel-sound'), guide: $('#panel-guide'), settings: $('#panel-settings') };
   const endDemo = $('#end-match-demo'), leave = $('#leave-match');
   const langsEl = $('#langs'), vol = $('#volume'), volVal = $('#volume-val'), muteBtn = $('#mute'), gens = $('#guide-generals');
   let openName = null, paused = false, pausedOpts = {};
@@ -87,6 +87,7 @@ export function createMenuUI(root) {
   nav.querySelector('#nav-lang').addEventListener('click', () => api.open('lang'));
   nav.querySelector('#nav-sound').addEventListener('click', () => api.open('sound'));
   nav.querySelector('#nav-guide').addEventListener('click', () => api.open('guide'));
+  nav.querySelector('#nav-settings').addEventListener('click', () => api.open('settings'));
   root.querySelectorAll('.panel-back').forEach((b) => b.addEventListener('click', () => api.close()));
   return api;
 }
