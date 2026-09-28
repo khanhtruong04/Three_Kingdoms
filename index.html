@@ -119,6 +119,7 @@
   /* Chế độ chỉnh vị trí/kích thước nút (Cài đặt → "Chỉnh vị trí & kích thước nút"): các nút 1–13 (đánh dấu
      data-drag, xem ui/touch.js) hiện viền đứt để biết kéo được; nút đang chọn (để bấm +/－ đổi cỡ) viền vàng liền.
      Thanh công cụ nổi giữa dưới màn — z-index cao hơn mọi nút khác trong #touch vì xếp SAU CÙNG trong HTML. */
+  #touch.tc-editing .tc-cam { pointer-events: none; }   /* đang chỉnh nút: không cho vuốt xoay camera */
   body.touch #touch.tc-editing [data-drag], body.touch #minimap.tc-drag-outline { outline: .18rem dashed rgba(242,193,78,.85); outline-offset: .15rem; cursor: grab; }
   body.touch [data-drag].tc-edit-selected { outline: .22rem solid #f2c14e; outline-offset: .15rem; }
   #touch .tc-edit-bar { left: 50%; bottom: max(1rem, env(safe-area-inset-bottom)); transform: translateX(-50%);
@@ -643,7 +644,6 @@
     <h2 data-i18n="menu.settings">Settings</h2>
     <div class="hint" data-i18n="settings.hint"></div>
     <button type="button" id="settings-edit-layout" class="secondary" data-i18n="settings.editLayout"></button>
-    <div class="hint" id="settings-edit-need-match" data-i18n="settings.editNeedMatch" hidden></div>
     <button type="button" id="settings-reset-layout" class="secondary small" data-i18n="settings.resetLayout"></button>
     <button type="button" class="panel-back secondary" data-i18n="common.back">Back</button>
   </section>

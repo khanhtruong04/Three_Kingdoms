@@ -76,7 +76,7 @@ export function createTouchControls(root, input, getShopCtx, onMenu = () => {}) 
       <button type="button" class="tc-edit-minus">－</button>
       <button type="button" class="tc-edit-plus">＋</button>
       <button type="button" class="tc-edit-reset" data-i18n="settings.resetLayout"></button>
-      <button type="button" class="tc-edit-done" data-i18n="settings.done"></button>
+      <button type="button" class="tc-edit-done" data-i18n="settings.save"></button>
     </div>
   `;
   applyStatic(root);
@@ -179,8 +179,30 @@ export function createTouchControls(root, input, getShopCtx, onMenu = () => {}) 
   const buyBtns = [...root.querySelectorAll('[data-buy]')];
   const upRows = [...root.querySelectorAll('.tc-up-row')];
   let lastOrderIdx = -1, lastGeneralId = null;
+  let previewMode = false, exitCb = null;   // xem thử trong Cài đặt: HUD hiện số liệu mẫu, không bị update() ghi đè
+
+  /** Số liệu mẫu cho lúc xem thử/chỉnh nút trong Cài đặt (có thể chưa vào trận nào nên chưa có dữ liệu thật). */
+  function fillPreview() {
+    avaEl.textContent = '雲';
+    avaEl.style.background = getFaction('shu')?.themeColor || '#8c2f2f';
+    hpBar.style.width = '72%';
+    clockEl.textContent = '15:00';
+    goldEl.textContent = '999';
+    flagName.textContent = t('touch.neutral');
+    flagEl.style.setProperty('--fc', '#8d8577');
+    flagBar.style.width = '0%';
+    healN.textContent = '5';
+    healBtn.classList.remove('empty');
+    for (const b of buyBtns) {
+      b.classList.remove('disabled');
+      b.querySelector('.tc-buy-p').textContent = BUY_BTNS.find((x) => x.id === b.dataset.buy)?.price ?? '';
+    }
+    ordBtns.forEach((b) => b.classList.toggle('active', b.dataset.action === 'order1'));   // "Đi theo" = lệnh mặc định
+    lastOrderIdx = -1; lastGeneralId = null;   // buộc update() vẽ lại số thật khi thoát xem thử
+  }
 
   function update(game) {
+    if (previewMode) return;   // đang xem thử trong Cài đặt — giữ nguyên số liệu mẫu, không ghi đè
     const idx = game.playerOrder ?? 0;
     if (idx !== lastOrderIdx) {
       lastOrderIdx = idx;
@@ -302,18 +324,23 @@ export function createTouchControls(root, input, getShopCtx, onMenu = () => {}) 
   }
   function dragMove(e) {
     if (!dragging || e.pointerId !== dragging.pointerId) return;
+    e.stopPropagation();
     const cur = layout[dragging.key] || { scale: 1 };
     layout[dragging.key] = { dx: dragging.baseDx + (e.clientX - dragging.startX), dy: dragging.baseDy + (e.clientY - dragging.startY), scale: cur.scale ?? 1 };
     applyLayout();
   }
   function dragEnd(e) {
     if (!dragging || e.pointerId !== dragging.pointerId) return;
+    e.stopPropagation();
     dragging = null; saveLayout();
   }
+  // CẢ BỐN đều ở giai đoạn BẮT (capture, tham số `true`). Lỗi đã sửa: lúc đầu move/up/cancel để ở giai đoạn nổi bọt
+  // nên bị chính handler `pointerup` của nút (đánh/lệnh/mua — chúng gọi stopPropagation) chặn mất → nhả tay mà
+  // `dragging` không được xoá, nút cứ dính theo ngón tay ở lần chạm sau (lưu ra toạ độ sai hẳn).
   document.addEventListener('pointerdown', dragStart, true);
-  document.addEventListener('pointermove', dragMove);
-  document.addEventListener('pointerup', dragEnd);
-  document.addEventListener('pointercancel', dragEnd);
+  document.addEventListener('pointermove', dragMove, true);
+  document.addEventListener('pointerup', dragEnd, true);
+  document.addEventListener('pointercancel', dragEnd, true);
 
   function adjustScale(delta) {
     if (!selectedKey) return;
@@ -326,16 +353,23 @@ export function createTouchControls(root, input, getShopCtx, onMenu = () => {}) 
   editBar.querySelector('.tc-edit-plus').addEventListener('click', () => adjustScale(0.1));
   function resetLayout() { layout = {}; saveLayout(); applyLayout(); selectKey(null); }
   editBar.querySelector('.tc-edit-reset').addEventListener('click', resetLayout);
-  editBar.querySelector('.tc-edit-done').addEventListener('click', () => setEditMode(false));
+  editBar.querySelector('.tc-edit-done').addEventListener('click', () => { saveLayout(); setEditMode(false); });   // kéo/đổi cỡ đã tự lưu từng bước; nút này lưu lần cuối rồi đóng
 
   /** main.js gọi khi bấm "Chỉnh vị trí & kích thước nút" trong Cài đặt (chỉ có tác dụng khi đang trong trận, vì cần
    *  thấy nút thật để kéo — main.js tự kiểm điều kiện đó trước khi gọi). */
-  function setEditMode(v) {
+  function setEditMode(v, opts = {}) {
     editMode = v;
     root.classList.toggle('tc-editing', v);
     minimapEl?.classList.toggle('tc-drag-outline', v);   // minimap nằm ngoài #touch nên không ăn theo .tc-editing của root
     editBar.hidden = !v;
-    if (!v) { selectKey(null); dragging = null; }
+    if (v) {
+      previewMode = !!opts.preview;
+      exitCb = opts.onExit || null;
+      if (previewMode) { showArmyButtons(true); fillPreview(); }
+    } else {
+      selectKey(null); dragging = null; previewMode = false;
+      const cb = exitCb; exitCb = null; cb?.();
+    }
   }
 
   return { update, showArmyButtons, setEditMode, resetLayout, get editMode() { return editMode; } };

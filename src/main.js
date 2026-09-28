@@ -147,16 +147,21 @@ addEventListener('resize', updateOrientation);
 addEventListener('orientationchange', updateOrientation);
 
 // Cài đặt (yêu cầu thêm) — chỉ có ý nghĩa trên cảm ứng nên nút "Cài đặt" trong menu chính chỉ hiện khi isTouch.
-// "Chỉnh vị trí & kích thước nút" cần THẤY nút thật để kéo nên chỉ bật được khi đang ở scene MATCH (trong trận) —
-// tham chiếu sceneManager/menuUI/SCENE bên trong callback (khai báo ở dưới file này) chứ không phải lúc chạy dòng
-// này, nên không vướng thứ tự khai báo (giống cách gọi shopCtx()/touchMenu() ở trên).
+// "Chỉnh vị trí & kích thước nút" mở NGAY trong Cài đặt, KHÔNG cần vào trận trước: tạm ẩn menu rồi hiện chính HUD
+// thật (#touch + #minimap) ở chế độ xem thử với số liệu mẫu — nhìn sao thì vào trận đúng y như vậy, không phải dựng
+// một bộ nút giả riêng dễ lệch với thật. Bấm "Lưu" thì trả lại đúng trạng thái ẩn/hiện cũ và mở lại bảng Cài đặt.
+// (menu/minimapEl/menuUI khai báo ở dưới file này — chỉ dùng bên trong callback nên không vướng thứ tự khai báo.)
 if (isTouch) document.getElementById('nav-settings').hidden = false;
-const editLayoutBtn = document.getElementById('settings-edit-layout'), editNeedMatchEl = document.getElementById('settings-edit-need-match');
-editLayoutBtn.addEventListener('click', () => {
-  editNeedMatchEl.hidden = true;
-  if (sceneManager.current !== SCENE.MATCH) { editNeedMatchEl.hidden = false; return; }
-  setPause(false);   // đóng menu để lộ #touch ra (trận 1 người: setPause(false) = tiếp tục chạy; trận nhiều người vốn không dừng)
-  touchControls.setEditMode(true);
+document.getElementById('settings-edit-layout').addEventListener('click', () => {
+  const touchWasHidden = touchEl.hidden, minimapWasHidden = minimapEl.hidden;
+  menu.hidden = true; touchEl.hidden = false; minimapEl.hidden = false;
+  touchControls.setEditMode(true, {
+    preview: true,
+    onExit: () => {
+      touchEl.hidden = touchWasHidden; minimapEl.hidden = minimapWasHidden;
+      menu.hidden = false; menuUI.open('settings');
+    },
+  });
 });
 document.getElementById('settings-reset-layout').addEventListener('click', () => touchControls.resetLayout());
 
